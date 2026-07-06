@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
-import 'machine_detail_screen.dart';
-// Nanti kita akan import machine_detail_screen.dart di sini
+import 'machine_detail_screen.dart'; // Navigasi ke detail Lori
 
 class MachineListScreen extends StatefulWidget {
   final String stationName;
@@ -14,136 +13,147 @@ class MachineListScreen extends StatefulWidget {
 class _MachineListScreenState extends State<MachineListScreen> {
   int _selectedIndex = 1;
 
-  // Data Dummy untuk Mesin
-  final List<Map<String, dynamic>> machines = [
+  // Data Sub-Unit (Mesin) di dalam Station
+  final List<Map<String, dynamic>> subUnits = [
+    {'name': 'Lori', 'health': 89, 'icon': Icons.directions_railway},
+    {'name': 'Capstand', 'health': 94, 'icon': Icons.rotate_right},
     {
-      'name': 'Sterilizer 1',
-      'status': 'Running',
-      'health': 95,
-      'icon': Icons.precision_manufacturing,
+      'name': 'Hydraulic Power Unit (HPU)',
+      'health': 91,
+      'icon': Icons.settings_suggest,
     },
-    {
-      'name': 'Sterilizer 2',
-      'status': 'Running',
-      'health': 92,
-      'icon': Icons.precision_manufacturing,
-    },
-    {
-      'name': 'Sterilizer 3',
-      'status': 'Running',
-      'health': 71,
-      'icon': Icons.precision_manufacturing,
-    },
-    {
-      'name': 'Sterilizer 4',
-      'status': 'Breakdown',
-      'health': 40,
-      'icon': Icons.precision_manufacturing,
-    },
+    {'name': 'Transfer Carriage', 'health': 88, 'icon': Icons.swap_horiz},
+    {'name': 'Belt Track', 'health': 95, 'icon': Icons.view_stream},
   ];
 
   @override
   Widget build(BuildContext context) {
+    // Hitung Overall Health (Rata-rata)
+    int totalHealth =
+        subUnits.fold(0, (sum, item) => sum + (item['health'] as int)) ~/
+        subUnits.length;
+
     return Scaffold(
       backgroundColor: Colors.grey[50],
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: const Color(
+          0xFF1a2332,
+        ), // Dark blue header sesuai gambar
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios, color: Color(0xFF1a2332)),
+          icon: const Icon(Icons.arrow_back_ios, color: Colors.white),
           onPressed: () => Navigator.pop(context),
         ),
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              widget.stationName,
-              style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-            ),
-            const Text(
-              'Machine List',
-              style: TextStyle(
-                color: Color(0xFF1a2332),
-                fontWeight: FontWeight.bold,
-                fontSize: 18,
-              ),
-            ),
-          ],
+        title: Text(
+          widget.stationName,
+          style: const TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+          ),
         ),
       ),
       body: Column(
         children: [
-          // Search Bar
-          Padding(
+          // Header Card (Overall Health)
+          Container(
+            width: double.infinity,
             padding: const EdgeInsets.all(20),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(12),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.grey.withOpacity(0.1),
-                    spreadRadius: 1,
-                    blurRadius: 5,
-                  ),
-                ],
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.only(
+                bottomLeft: Radius.circular(20),
+                bottomRight: Radius.circular(20),
               ),
-              child: Row(
-                children: [
-                  const Icon(Icons.search, color: Colors.grey),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: TextField(
-                      decoration: InputDecoration(
-                        hintText: 'Search machine...',
-                        hintStyle: TextStyle(color: Colors.grey[400]),
-                        border: InputBorder.none,
+              boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 5)],
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Overall Health',
+                      style: TextStyle(color: Colors.grey, fontSize: 14),
+                    ),
+                    Text(
+                      '${totalHealth.toInt()}%',
+                      style: TextStyle(
+                        fontSize: 32,
+                        fontWeight: FontWeight.bold,
+                        color: _getColor(totalHealth.toInt()),
                       ),
                     ),
+                    Text(
+                      '${subUnits.length} Unit Mesin',
+                      style: TextStyle(color: Colors.grey[600]),
+                    ),
+                  ],
+                ),
+                SizedBox(
+                  height: 80,
+                  width: 80,
+                  child: Stack(
+                    children: [
+                      CircularProgressIndicator(
+                        value: totalHealth / 100,
+                        strokeWidth: 8,
+                        backgroundColor: Colors.grey[200],
+                        valueColor: AlwaysStoppedAnimation<Color>(
+                          _getColor(totalHealth.toInt()),
+                        ),
+                      ),
+                      Center(
+                        child: Icon(
+                          Icons.check_circle,
+                          color: _getColor(totalHealth.toInt()),
+                          size: 30,
+                        ),
+                      ),
+                    ],
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
 
-          // List Mesin
+          const SizedBox(height: 20),
+
+          // List Sub-Unit
           Expanded(
             child: ListView.builder(
               padding: const EdgeInsets.symmetric(horizontal: 20),
-              itemCount: machines.length,
+              itemCount: subUnits.length,
               itemBuilder: (context, index) {
-                final machine = machines[index];
-                return _buildMachineCard(
-                  machine['name'],
-                  machine['status'],
-                  machine['health'],
-                  machine['icon'],
+                final unit = subUnits[index];
+                return _buildSubUnitCard(
+                  index + 1,
+                  unit['name'],
+                  unit['health'],
+                  unit['icon'],
                 );
               },
             ),
           ),
+
+          // Footer Last Updated
+          Padding(
+            padding: const EdgeInsets.all(20),
+            child: Text(
+              'Terakhir Diperbarui: 02 Jul 2026 10:30',
+              style: TextStyle(color: Colors.grey[500], fontSize: 12),
+            ),
+          ),
         ],
       ),
-      bottomNavigationBar: _buildBottomNavigationBar(),
     );
   }
 
-  Widget _buildMachineCard(
-    String name,
-    String status,
-    int health,
-    IconData icon,
-  ) {
-    // Tentukan warna status
-    bool isBreakdown = status == 'Breakdown';
-    Color statusColor = isBreakdown ? Colors.red : Colors.green;
-    Color healthColor = health >= 90
-        ? Colors.green
-        : (health >= 70 ? Colors.orange : Colors.red);
-
+  Widget _buildSubUnitCard(int number, String name, int health, IconData icon) {
+    Color color = _getColor(health);
     return GestureDetector(
       onTap: () {
+        // Navigasi ke Machine Detail (Lori Overall)
         Navigator.push(
           context,
           MaterialPageRoute(
@@ -156,91 +166,46 @@ class _MachineListScreenState extends State<MachineListScreen> {
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(15),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.grey.withOpacity(0.05),
-              spreadRadius: 1,
-              blurRadius: 5,
-              offset: const Offset(0, 2),
-            ),
-          ],
+          borderRadius: BorderRadius.circular(12),
+          border: name == 'Lori'
+              ? Border.all(color: Colors.blue, width: 2)
+              : null, // Highlight Lori
         ),
         child: Row(
           children: [
-            // Icon Mesin
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.grey[100],
-                borderRadius: BorderRadius.circular(12),
+            Text(
+              '$number.',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: Colors.grey[600],
               ),
-              child: Icon(icon, color: const Color(0xFF1a2332), size: 24),
             ),
             const SizedBox(width: 15),
-
-            // Nama & Status
+            Icon(icon, color: const Color(0xFF1a2332)),
+            const SizedBox(width: 15),
             Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    name,
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF1a2332),
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  Row(
-                    children: [
-                      Container(
-                        width: 8,
-                        height: 8,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: statusColor,
-                        ),
-                      ),
-                      const SizedBox(width: 6),
-                      Text(
-                        status,
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: statusColor,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
+              child: Text(
+                name,
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ),
-
-            // Health Percentage
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                Text(
-                  'Health $health%',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                    color: healthColor,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                SizedBox(
-                  width: 60,
-                  child: LinearProgressIndicator(
-                    value: health / 100,
-                    backgroundColor: Colors.grey[200],
-                    valueColor: AlwaysStoppedAnimation<Color>(healthColor),
-                    minHeight: 4,
-                  ),
-                ),
-              ],
+            Text(
+              '$health%',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: color,
+              ),
+            ),
+            const SizedBox(width: 10),
+            Container(
+              width: 10,
+              height: 10,
+              decoration: BoxDecoration(shape: BoxShape.circle, color: color),
             ),
           ],
         ),
@@ -248,52 +213,9 @@ class _MachineListScreenState extends State<MachineListScreen> {
     );
   }
 
-  Widget _buildBottomNavigationBar() {
-    return BottomNavigationBar(
-      type: BottomNavigationBarType.fixed,
-      currentIndex: _selectedIndex,
-      onTap: (index) {
-        setState(() {
-          _selectedIndex = index;
-        });
-        _onItemTapped(index);
-      },
-      selectedItemColor: const Color(0xFF2196F3),
-      unselectedItemColor: Colors.grey,
-      items: const [
-        BottomNavigationBarItem(
-          icon: Icon(Icons.home_outlined),
-          activeIcon: Icon(Icons.home),
-          label: 'Home',
-        ),
-        BottomNavigationBarItem(
-          icon: Icon(Icons.list_outlined),
-          activeIcon: Icon(Icons.list),
-          label: 'Station',
-        ),
-        BottomNavigationBarItem(
-          icon: Icon(Icons.add_circle_outline),
-          activeIcon: Icon(Icons.add_circle),
-          label: 'Mill',
-        ),
-        BottomNavigationBarItem(
-          icon: Icon(Icons.history_outlined),
-          activeIcon: Icon(Icons.history),
-          label: 'History',
-        ),
-        BottomNavigationBarItem(
-          icon: Icon(Icons.more_horiz),
-          activeIcon: Icon(Icons.more_horiz),
-          label: 'More',
-        ),
-      ],
-    );
-  }
-
-  void _onItemTapped(int index) {
-    if (index == 0)
-      Navigator.pushNamed(context, '/dashboard');
-    else if (index == 1)
-      Navigator.pushNamed(context, '/factory_list');
+  Color _getColor(int health) {
+    if (health >= 90) return Colors.green;
+    if (health >= 70) return Colors.orange;
+    return Colors.red;
   }
 }

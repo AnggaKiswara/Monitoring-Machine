@@ -1,13 +1,10 @@
 import 'package:flutter/material.dart';
-import 'machine_list_screen.dart';
+import 'machine_list_screen.dart'; // Import untuk navigasi
 
 class StationListScreen extends StatefulWidget {
-  final String factoryName; // <-- Parameter factoryName
+  final String factoryName;
 
-  const StationListScreen({
-    super.key,
-    required this.factoryName, // <-- Wajib diisi
-  });
+  const StationListScreen({super.key, required this.factoryName});
 
   @override
   State<StationListScreen> createState() => _StationListScreenState();
@@ -19,16 +16,29 @@ class _StationListScreenState extends State<StationListScreen> {
   // Data Dummy untuk Station
   final List<Map<String, dynamic>> stations = [
     {'name': 'Loading Ramp', 'health': 97, 'icon': Icons.local_shipping},
-    {'name': 'Press', 'health': 87, 'icon': Icons.settings},
+    {'name': 'Sterilizer', 'health': 95, 'icon': Icons.eco},
+    {'name': 'Tipler', 'health': 95, 'icon': Icons.vertical_align_bottom},
+    {
+      'name': 'Digester & Press',
+      'health': 87,
+      'icon': Icons.precision_manufacturing,
+    },
     {'name': 'Clarification', 'health': 81, 'icon': Icons.filter_list},
-    {'name': 'Turbine', 'health': 87, 'icon': Icons.wind_power},
-    {'name': 'Kernel', 'health': 92, 'icon': Icons.grain},
+    {'name': 'Nut & Kernel', 'health': 92, 'icon': Icons.grain},
+    {'name': 'Engine Room', 'health': 95, 'icon': Icons.engineering},
     {'name': 'Boiler', 'health': 90, 'icon': Icons.local_fire_department},
-    {'name': 'Sterilizer', 'health': 95, 'icon': Icons.water_drop},
   ];
 
   @override
   Widget build(BuildContext context) {
+    // Hitung statistik
+    int total = stations.length;
+    int good = stations.where((s) => s['health'] >= 90).length;
+    int warning = stations
+        .where((s) => s['health'] >= 70 && s['health'] < 90)
+        .length;
+    int breakdown = stations.where((s) => s['health'] < 70).length;
+
     return Scaffold(
       backgroundColor: Colors.grey[50],
       appBar: AppBar(
@@ -42,7 +52,7 @@ class _StationListScreenState extends State<StationListScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              widget.factoryName, // <-- Gunakan widget.factoryName
+              widget.factoryName,
               style: TextStyle(fontSize: 12, color: Colors.grey[600]),
             ),
             const Text(
@@ -92,7 +102,7 @@ class _StationListScreenState extends State<StationListScreen> {
             ),
           ),
 
-          // Overall Stats
+          // Overall Stats (4 Indikator)
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20),
             child: Container(
@@ -101,14 +111,39 @@ class _StationListScreenState extends State<StationListScreen> {
                 color: const Color(0xFF1a2332),
                 borderRadius: BorderRadius.circular(15),
               ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
+              child: Column(
                 children: [
-                  _buildStatItem('Total', '7', Colors.white),
-                  Container(width: 1, height: 30, color: Colors.white24),
-                  _buildStatItem('Good', '5', Colors.green[300]!),
-                  Container(width: 1, height: 30, color: Colors.white24),
-                  _buildStatItem('Alert', '2', Colors.orange[300]!),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceAround,
+                    children: [
+                      _buildStatItem('Total Station', '$total', Colors.white),
+                      Container(width: 1, height: 40, color: Colors.white24),
+                      _buildStatItem(
+                        'Good Condition',
+                        '$good',
+                        Colors.green[300]!,
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  const Divider(color: Colors.white24, thickness: 1),
+                  const SizedBox(height: 12),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceAround,
+                    children: [
+                      _buildStatItem(
+                        'Warning Condition',
+                        '$warning',
+                        Colors.orange[300]!,
+                      ),
+                      Container(width: 1, height: 40, color: Colors.white24),
+                      _buildStatItem(
+                        'Breakdown Condition',
+                        '$breakdown',
+                        Colors.red[300]!,
+                      ),
+                    ],
+                  ),
                 ],
               ),
             ),
@@ -140,18 +175,27 @@ class _StationListScreenState extends State<StationListScreen> {
   }
 
   Widget _buildStatItem(String label, String value, Color color) {
-    return Column(
-      children: [
-        Text(
-          value,
-          style: TextStyle(
-            fontSize: 24,
-            fontWeight: FontWeight.bold,
-            color: color,
+    return Expanded(
+      child: Column(
+        children: [
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 28,
+              fontWeight: FontWeight.bold,
+              color: color,
+            ),
           ),
-        ),
-        Text(label, style: TextStyle(fontSize: 12, color: Colors.white70)),
-      ],
+          const SizedBox(height: 4),
+          Text(
+            label,
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 11, color: Colors.white70),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ],
+      ),
     );
   }
 
@@ -169,6 +213,7 @@ class _StationListScreenState extends State<StationListScreen> {
       healthColor = Colors.red;
       status = 'Attention';
     }
+
     return GestureDetector(
       onTap: () {
         Navigator.push(
@@ -300,7 +345,8 @@ class _StationListScreenState extends State<StationListScreen> {
     if (index == 0) {
       Navigator.pushNamed(context, '/dashboard');
     } else if (index == 1) {
-      Navigator.pushNamed(context, '/factory_list');
+      // ✅ Tab Station → Submitted Data
+      Navigator.pushNamed(context, '/submitted_data');
     }
   }
 }

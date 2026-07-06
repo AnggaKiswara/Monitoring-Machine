@@ -253,9 +253,9 @@ class _FactoryListScreenState extends State<FactoryListScreen> {
   void _onItemTapped(int index) {
     if (index == 0) {
       Navigator.pushNamed(context, '/dashboard');
-    } else if (index == 2) {
-      // Navigate to Station List
-      Navigator.pushNamed(context, '/station_list');
+    } else if (index == 1) {
+      // ✅ Tab Station → Submitted Data
+      Navigator.pushNamed(context, '/submitted_data');
     }
   }
 }

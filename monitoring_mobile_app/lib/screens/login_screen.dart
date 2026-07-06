@@ -42,7 +42,7 @@ class LoginScreen extends StatelessWidget {
               TextField(
                 controller: _usernameController,
                 decoration: InputDecoration(
-                  hintText: 'Enter username',
+                  hintText: 'Fallah@engineer',
                   hintStyle: TextStyle(color: Colors.grey[400]),
                   filled: true,
                   fillColor: Colors.grey[100],

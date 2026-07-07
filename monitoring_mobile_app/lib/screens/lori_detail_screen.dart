@@ -40,15 +40,20 @@ class _LoriDetailScreenState extends State<LoriDetailScreen> {
     super.initState();
     loriData = Map<String, dynamic>.from(widget.initialData);
 
-    if (loriData['tanggal'] is String) {
-      try {
-        loriData['tanggal'] = DateTime.parse(loriData['tanggal']);
-      } catch (e) {
-        loriData['tanggal'] = DateTime.now();
-      }
+    // Parse tanggal-tanggal dari string ke DateTime jika perlu
+    _parseDateField('tanggalInspeksi');
+    _parseDateField('lastCheckPM');
+    _parseDateField('nextPM');
+    _parseDateField('submittedAt');
+
+    // Fallback: jika masih pakai format lama (key 'tanggal')
+    if (loriData['tanggal'] != null && loriData['tanggalInspeksi'] == null) {
+      loriData['tanggalInspeksi'] = loriData['tanggal'];
+      loriData['tanggalInspeksiDisplay'] = DateFormat(
+        'dd MMM yyyy',
+      ).format(loriData['tanggalInspeksi']);
     }
 
-    // PENTING: Simpan data ke DataStore saat pertama kali dibuka
     _saveDataToStore();
     print('=== LORI DETAIL INIT ===');
     print('Lori Name: ${widget.loriName}');
@@ -56,7 +61,16 @@ class _LoriDetailScreenState extends State<LoriDetailScreen> {
     print('========================');
   }
 
-  // Simpan data ke DataStore
+  void _parseDateField(String key) {
+    if (loriData[key] is String) {
+      try {
+        loriData[key] = DateTime.parse(loriData[key]);
+      } catch (e) {
+        // ignore
+      }
+    }
+  }
+
   void _saveDataToStore() {
     _dataStore.setLoriData(widget.loriName, loriData);
     print('Data saved to store: $loriData');
@@ -66,22 +80,18 @@ class _LoriDetailScreenState extends State<LoriDetailScreen> {
     return _dataStore.getLoriOverallHealth(widget.loriName);
   }
 
-  // Simpan semua data Lori (tombol Kirim)
   void _submitAllData() {
     print('=== SUBMITTING DATA ===');
 
-    // Update status submitted
     loriData['submitted'] = true;
     loriData['submittedAt'] = DateTime.now();
     loriData['overallHealth'] = _calculateOverallHealth();
 
-    // Simpan ke DataStore
     _saveDataToStore();
 
     print('Final Data: $loriData');
     print('======================');
 
-    // Tampilkan dialog sukses
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -92,8 +102,8 @@ class _LoriDetailScreenState extends State<LoriDetailScreen> {
         actions: [
           TextButton(
             onPressed: () {
-              Navigator.pop(context); // Tutup dialog
-              Navigator.pop(context); // Kembali ke Machine List
+              Navigator.pop(context);
+              Navigator.pop(context);
             },
             child: const Text('OK'),
           ),
@@ -114,18 +124,25 @@ class _LoriDetailScreenState extends State<LoriDetailScreen> {
         : (healthInt >= 70 ? Colors.orange : Colors.red);
 
     // Format tanggal untuk ditampilkan
-    String tanggalDisplay = '-';
-    if (loriData['tanggal'] is DateTime) {
-      tanggalDisplay = DateFormat(
-        'dd MMM yyyy HH:mm',
-      ).format(loriData['tanggal']);
-    } else if (loriData['tanggal'] is String) {
-      tanggalDisplay = loriData['tanggal'];
+    String tanggalInspeksiDisplay = '-';
+    if (loriData['tanggalInspeksiDisplay'] != null) {
+      tanggalInspeksiDisplay = loriData['tanggalInspeksiDisplay'];
+    } else if (loriData['tanggalInspeksi'] is DateTime) {
+      tanggalInspeksiDisplay = DateFormat(
+        'dd MMM yyyy',
+      ).format(loriData['tanggalInspeksi']);
+    } else if (loriData['tanggalInspeksi'] is String) {
+      tanggalInspeksiDisplay = loriData['tanggalInspeksi'];
     }
+
+    String lastCheckDisplay = loriData['lastCheckPMDisplay'] ?? '-';
+    String nextPMDisplay = loriData['nextPMDisplay'] ?? '-';
+    int sisaHari = (loriData['sisaHari'] ?? 0) is int
+        ? loriData['sisaHari']
+        : int.tryParse(loriData['sisaHari'].toString()) ?? 0;
 
     return WillPopScope(
       onWillPop: () async {
-        // Auto-save saat back button ditekan
         _saveDataToStore();
         return true;
       },
@@ -157,7 +174,6 @@ class _LoriDetailScreenState extends State<LoriDetailScreen> {
         ),
         body: Column(
           children: [
-            // Scrollable Content
             Expanded(
               child: SingleChildScrollView(
                 padding: const EdgeInsets.all(20),
@@ -259,40 +275,39 @@ class _LoriDetailScreenState extends State<LoriDetailScreen> {
                     ),
                     const SizedBox(height: 20),
 
-                    // Info Cards (HM)
+                    // ✅ INFO CARDS (SISTEM TANGGAL)
                     GridView.count(
                       crossAxisCount: 2,
                       shrinkWrap: true,
                       physics: const NeverScrollableScrollPhysics(),
                       mainAxisSpacing: 12,
                       crossAxisSpacing: 12,
-                      childAspectRatio: 1.5,
+                      childAspectRatio: 1.3,
                       children: [
                         _buildInfoCard(
-                          'HM Saat Ini',
-                          '${loriData['hmSaatIni'] ?? 0} HM',
-                          Icons.schedule,
+                          'Tanggal Inspeksi',
+                          tanggalInspeksiDisplay,
+                          Icons.calendar_today,
+                          Colors.blue,
                         ),
                         _buildInfoCard(
-                          'HM Terakhir PM',
-                          '${loriData['hmTerakhirPM'] ?? 0} HM',
+                          'Terakhir PM',
+                          lastCheckDisplay,
                           Icons.history,
+                          Colors.orange,
                         ),
                         _buildInfoCard(
                           'Next PM',
-                          '${loriData['nextPM'] ?? 0} HM',
+                          nextPMDisplay,
                           Icons.event,
+                          Colors.green,
                         ),
-                        _buildInfoCard(
-                          'Sisa HM',
-                          '${loriData['sisaHM'] ?? 0} HM',
-                          Icons.timer,
-                        ),
+                        _buildSisaHariCard(sisaHari),
                       ],
                     ),
                     const SizedBox(height: 20),
 
-                    // Inspector & Tanggal
+                    // Inspector Card
                     Container(
                       padding: const EdgeInsets.all(20),
                       decoration: BoxDecoration(
@@ -307,34 +322,19 @@ class _LoriDetailScreenState extends State<LoriDetailScreen> {
                       ),
                       child: Row(
                         children: [
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Text(
-                                  'Tanggal Inspeksi',
-                                  style: TextStyle(
-                                    color: Colors.grey,
-                                    fontSize: 12,
-                                  ),
-                                ),
-                                Text(
-                                  tanggalDisplay,
-                                  style: const TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.bold,
-                                    color: Color(0xFF1a2332),
-                                  ),
-                                ),
-                              ],
+                          Container(
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: Colors.purple[50],
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: const Icon(
+                              Icons.person,
+                              color: Colors.purple,
+                              size: 24,
                             ),
                           ),
-                          Container(
-                            width: 1,
-                            height: 40,
-                            color: Colors.grey[300],
-                          ),
-                          const SizedBox(width: 20),
+                          const SizedBox(width: 15),
                           Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
@@ -401,7 +401,7 @@ class _LoriDetailScreenState extends State<LoriDetailScreen> {
               ),
             ),
 
-            // Submit Button (Fixed at Bottom)
+            // Submit Button
             Container(
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
@@ -439,7 +439,13 @@ class _LoriDetailScreenState extends State<LoriDetailScreen> {
     );
   }
 
-  Widget _buildInfoCard(String label, String value, IconData icon) {
+  // ✅ Info Card dengan warna dinamis
+  Widget _buildInfoCard(
+    String label,
+    String value,
+    IconData icon,
+    Color color,
+  ) {
     return Container(
       padding: const EdgeInsets.all(15),
       decoration: BoxDecoration(
@@ -453,23 +459,99 @@ class _LoriDetailScreenState extends State<LoriDetailScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Icon(icon, color: const Color(0xFF1a2332), size: 24),
+          Icon(icon, color: color, size: 24),
+          const SizedBox(height: 8),
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
                 value,
                 style: const TextStyle(
-                  fontSize: 18,
+                  fontSize: 14,
                   fontWeight: FontWeight.bold,
                   color: Color(0xFF1a2332),
                 ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
               ),
+              const SizedBox(height: 4),
               Text(
                 label,
-                style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+                style: TextStyle(fontSize: 10, color: Colors.grey[600]),
               ),
             ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ✅ Card Sisa Hari dengan countdown color
+  Widget _buildSisaHariCard(int sisaHari) {
+    Color bgColor;
+    Color textColor;
+    String status;
+    IconData icon;
+
+    if (sisaHari <= 0) {
+      bgColor = Colors.red[50]!;
+      textColor = Colors.red[900]!;
+      status = 'Overdue!';
+      icon = Icons.error;
+    } else if (sisaHari <= 3) {
+      bgColor = Colors.red[50]!;
+      textColor = Colors.red[900]!;
+      status = 'Segera';
+      icon = Icons.warning;
+    } else if (sisaHari <= 7) {
+      bgColor = Colors.orange[50]!;
+      textColor = Colors.orange[900]!;
+      status = 'Segera';
+      icon = Icons.timer;
+    } else {
+      bgColor = Colors.green[50]!;
+      textColor = Colors.green[900]!;
+      status = 'Aman';
+      icon = Icons.check_circle;
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(15),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: textColor.withOpacity(0.3)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Icon(icon, color: textColor, size: 20),
+              Text(
+                status,
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                  color: textColor,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            '$sisaHari hari',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: textColor,
+            ),
+          ),
+          const Text(
+            'Sisa Hari',
+            style: TextStyle(fontSize: 10, color: Colors.grey),
           ),
         ],
       ),

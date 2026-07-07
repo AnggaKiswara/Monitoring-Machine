@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
-import 'station_list_screen.dart'; // Import untuk navigasi ke Station List
+import 'station_list_screen.dart';
+import 'dart:convert';
+import 'package:shared_preferences/shared_preferences.dart';
+import '../services/api_services.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -9,10 +12,32 @@ class DashboardScreen extends StatefulWidget {
 }
 
 class _DashboardScreenState extends State<DashboardScreen> {
-  int _selectedIndex = 0; // Set ke 0 karena ini adalah halaman Home/Dashboard
+  int _selectedIndex = 0;
+  String _userName = 'User';
 
-  // Data Dummy untuk Pabrik
-  // Data Dummy untuk Pabrik
+  @override
+  void initState() {
+    super.initState();
+    _loadUserData();
+  }
+
+  Future<void> _loadUserData() async {
+    // Ambil nama user dari SharedPreferences (setelah login)
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final userData = prefs.getString('user_data');
+      if (userData != null) {
+        final data = json.decode(userData);
+        setState(() {
+          _userName = data['nama_lengkap'] ?? 'User';
+        });
+      }
+    } catch (e) {
+      print('Error loading user data: $e');
+    }
+  }
+
+  // Data Dummy untuk Pabrik (karena backend belum punya tabel factory)
   final List<Map<String, dynamic>> factories = [
     {'name': 'Kendawangan Mill', 'location': 'Kapuas 65 Tph', 'health': 92},
     {
@@ -31,13 +56,22 @@ class _DashboardScreenState extends State<DashboardScreen> {
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
-        title: const Text(
-          'Factory List', // Judul diubah menjadi Factory List
-          style: TextStyle(
-            color: Color(0xFF1a2332),
-            fontWeight: FontWeight.bold,
-            fontSize: 20,
-          ),
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Welcome, $_userName',
+              style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+            ),
+            const Text(
+              'Factory List',
+              style: TextStyle(
+                color: Color(0xFF1a2332),
+                fontWeight: FontWeight.bold,
+                fontSize: 20,
+              ),
+            ),
+          ],
         ),
         actions: [
           IconButton(
@@ -45,11 +79,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
               Icons.notifications_outlined,
               color: Color(0xFF1a2332),
             ),
-            onPressed: () {},
+            onPressed: () {
+              Navigator.pushNamed(context, '/submitted_data');
+            },
           ),
           IconButton(
-            icon: const Icon(Icons.settings_outlined, color: Color(0xFF1a2332)),
-            onPressed: () {},
+            icon: const Icon(Icons.logout, color: Color(0xFF1a2332)),
+            onPressed: () => _showLogoutDialog(),
           ),
         ],
       ),
@@ -106,11 +142,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
         ],
       ),
-
-      // Floating Action Button (+ Add Factory)
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () {
-          // Nanti kita buat fungsi add factory
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text('Fitur Add Factory akan segera hadir'),
@@ -125,22 +158,44 @@ class _DashboardScreenState extends State<DashboardScreen> {
         ),
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
-
-      // Bottom Navigation Bar
       bottomNavigationBar: _buildBottomNavigationBar(),
     );
   }
 
+  void _showLogoutDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Logout'),
+        content: const Text('Apakah Anda yakin ingin logout?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Batal'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              Navigator.pop(context);
+              await ApiService.logout();
+              if (mounted) {
+                Navigator.pushReplacementNamed(context, '/login');
+              }
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text('Logout', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildFactoryCard(String name, String location, int health) {
-    // Tentukan warna berdasarkan health
     Color healthColor = health >= 90
         ? Colors.green
         : (health >= 70 ? Colors.orange : Colors.red);
 
-    // Bungkus dengan GestureDetector agar bisa diklik
     return GestureDetector(
       onTap: () {
-        // Navigasi ke Station List dengan mengirim nama pabrik
         Navigator.push(
           context,
           MaterialPageRoute(
@@ -165,7 +220,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
         ),
         child: Row(
           children: [
-            // Icon Pabrik
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
@@ -179,8 +233,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ),
             ),
             const SizedBox(width: 15),
-
-            // Nama & Lokasi
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -201,8 +253,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ],
               ),
             ),
-
-            // Health Status & Arrow
             Column(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
@@ -274,7 +324,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
     if (index == 0) {
       Navigator.pushNamed(context, '/dashboard');
     } else if (index == 1) {
-      // ✅ Tab Station → Submitted Data
       Navigator.pushNamed(context, '/submitted_data');
     }
   }

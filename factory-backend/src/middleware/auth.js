@@ -18,6 +18,21 @@ const authenticate = (req, res, next) => {
   }
 };
 
+// Coba baca & verifikasi token kalau ada, tapi gak error kalau gak ada/invalid.
+// Dipakai di endpoint yang perilakunya beda tergantung ada login atau nggak (misal register).
+const optionalAuthenticate = (req, res, next) => {
+  const header = req.headers.authorization;
+  if (header && header.startsWith("Bearer ")) {
+    const token = header.split(" ")[1];
+    try {
+      req.user = jwt.verify(token, process.env.JWT_SECRET);
+    } catch (err) {
+      // token invalid, biarin req.user tetap undefined, jangan block request
+    }
+  }
+  next();
+};
+
 // Batasi akses berdasarkan role, contoh: authorize('admin')
 const authorize = (...roles) => (req, res, next) => {
   if (!req.user || !roles.includes(req.user.role_user)) {
@@ -26,4 +41,4 @@ const authorize = (...roles) => (req, res, next) => {
   next();
 };
 
-module.exports = { authenticate, authorize };
+module.exports = { authenticate, optionalAuthenticate, authorize };

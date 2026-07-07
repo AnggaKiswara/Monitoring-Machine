@@ -5,7 +5,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 class ApiService {
   // GANTI DENGAN URL BACKEND TEMAN ANDA
   static const String baseUrl = 'http://10.0.2.2:3000/api';
-  // ⚠️ 10.0.2.2 = localhost Android Emulator
   // ⚠️ Kalau di HP real, ganti dengan IP komputer (misal: 192.168.1.100:3000)
 
   static Future<String?> _getToken() async {

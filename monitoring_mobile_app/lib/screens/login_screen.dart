@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:convert';
 import '../services/api_services.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -31,20 +32,40 @@ class _LoginScreenState extends State<LoginScreen> {
     setState(() => _isLoading = true);
 
     try {
+      print('=== LOGIN ATTEMPT ===');
+      print('Username: ${_usernameController.text.trim()}');
+      print('Password: ${_passwordController.text}');
+
       final result = await ApiService.login(
         _usernameController.text.trim(),
         _passwordController.text,
       );
 
+      print('=== LOGIN RESPONSE ===');
+      print('Result: $result');
+      print('Result type: ${result.runtimeType}');
+
       // Login sukses
       setState(() => _isLoading = false);
 
       if (mounted) {
+        // Extract user data dengan safe access
+        String userName = 'User';
+        try {
+          if (result.containsKey('user') && result['user'] != null) {
+            final userData = result['user'];
+            if (userData is Map<String, dynamic>) {
+              userName =
+                  userData['nama_lengkap'] ?? userData['username'] ?? 'User';
+            }
+          }
+        } catch (e) {
+          print('Error extracting user data: $e');
+        }
+
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(
-              'Login berhasil! Selamat datang, ${result['user']['nama_lengkap'] ?? 'User'}',
-            ),
+            content: Text('Login berhasil! Selamat datang, $userName'),
             backgroundColor: Colors.green,
             duration: const Duration(seconds: 2),
           ),
@@ -55,6 +76,10 @@ class _LoginScreenState extends State<LoginScreen> {
       }
     } catch (e) {
       setState(() => _isLoading = false);
+
+      print('=== LOGIN ERROR ===');
+      print('Error: $e');
+      print('Error type: ${e.runtimeType}');
 
       if (mounted) {
         String errorMessage = 'Login gagal';
@@ -67,12 +92,20 @@ class _LoginScreenState extends State<LoginScreen> {
             e.toString().contains('Connection')) {
           errorMessage =
               'Tidak dapat terhubung ke server. Periksa koneksi internet.';
+        } else if (e.toString().contains('Null') &&
+            e.toString().contains('String')) {
+          errorMessage =
+              'Response dari server tidak valid. Pastikan user sudah terdaftar.';
         } else {
           errorMessage = 'Error: ${e.toString()}';
         }
 
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(errorMessage), backgroundColor: Colors.red),
+          SnackBar(
+            content: Text(errorMessage),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 3),
+          ),
         );
       }
     }
@@ -135,7 +168,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     TextField(
                       controller: _usernameController,
                       decoration: InputDecoration(
-                        hintText: 'Fallah@engineer',
+                        hintText: 'admin',
                         hintStyle: TextStyle(color: Colors.grey[400]),
                         filled: true,
                         fillColor: Colors.grey[100],

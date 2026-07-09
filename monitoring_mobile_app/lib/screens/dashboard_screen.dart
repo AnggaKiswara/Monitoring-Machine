@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'station_list_screen.dart';
-import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:convert';
 import '../services/api_services.dart';
+import 'station_list_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -14,22 +14,25 @@ class DashboardScreen extends StatefulWidget {
 class _DashboardScreenState extends State<DashboardScreen> {
   int _selectedIndex = 0;
   String _userName = 'User';
+  List<dynamic> _factories = [];
+  bool _loading = true;
+  String? _error;
 
   @override
   void initState() {
     super.initState();
     _loadUserData();
+    _loadFactories();
   }
 
   Future<void> _loadUserData() async {
-    // Ambil nama user dari SharedPreferences (setelah login)
     try {
       final prefs = await SharedPreferences.getInstance();
       final userData = prefs.getString('user_data');
       if (userData != null) {
         final data = json.decode(userData);
         setState(() {
-          _userName = data['nama_lengkap'] ?? 'User';
+          _userName = data['nama_lengkap'] ?? data['username'] ?? 'User';
         });
       }
     } catch (e) {
@@ -37,17 +40,31 @@ class _DashboardScreenState extends State<DashboardScreen> {
     }
   }
 
-  // Data Dummy untuk Pabrik (karena backend belum punya tabel factory)
-  final List<Map<String, dynamic>> factories = [
-    {'name': 'Kendawangan Mill', 'location': 'Kapuas 65 Tph', 'health': 92},
-    {
-      'name': 'Membuluh Sejahtera Mill',
-      'location': 'Kapuas 60 Tph',
-      'health': 85,
-    },
-    {'name': 'Serasau Mill', 'location': 'Kapuas 45 Tph', 'health': 78},
-    {'name': 'Bukit Belaban Mill', 'location': 'Kapuas 50 Tph', 'health': 88},
-  ];
+  Future<void> _loadFactories() async {
+    try {
+      setState(() {
+        _loading = true;
+        _error = null;
+      });
+
+      print('=== LOADING FACTORIES ===');
+      // ✅ GANTI: Pakai getFactories() bukan getStations()
+      final data = await ApiServices.getFactories();
+
+      print('Factories loaded: ${data.length}');
+
+      setState(() {
+        _factories = data;
+        _loading = false;
+      });
+    } catch (e) {
+      print('Error loading factories: $e');
+      setState(() {
+        _error = e.toString();
+        _loading = false;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -89,59 +106,99 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
         ],
       ),
-      body: Column(
-        children: [
-          // Search Bar
-          Padding(
-            padding: const EdgeInsets.all(20),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(12),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.grey.withOpacity(0.1),
-                    spreadRadius: 1,
-                    blurRadius: 5,
+      body: _loading
+          ? const Center(child: CircularProgressIndicator())
+          : _error != null
+          ? Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.error, size: 60, color: Colors.red),
+                  const SizedBox(height: 20),
+                  Text('Error: $_error'),
+                  const SizedBox(height: 20),
+                  ElevatedButton(
+                    onPressed: _loadFactories,
+                    child: const Text('Coba Lagi'),
                   ),
                 ],
               ),
-              child: Row(
+            )
+          : _factories.isEmpty
+          ? Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Icon(Icons.search, color: Colors.grey),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: TextField(
-                      decoration: InputDecoration(
-                        hintText: 'Search factory...',
-                        hintStyle: TextStyle(color: Colors.grey[400]),
-                        border: InputBorder.none,
-                      ),
+                  const Icon(Icons.factory, size: 80, color: Colors.grey),
+                  const SizedBox(height: 20),
+                  Text(
+                    'Belum ada Factory',
+                    style: TextStyle(fontSize: 16, color: Colors.grey[600]),
+                  ),
+                ],
+              ),
+            )
+          : Column(
+              children: [
+                // Search Bar
+                Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.grey.withOpacity(0.1),
+                          spreadRadius: 1,
+                          blurRadius: 5,
+                        ),
+                      ],
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.search, color: Colors.grey),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: TextField(
+                            decoration: InputDecoration(
+                              hintText: 'Search factory...',
+                              hintStyle: TextStyle(color: Colors.grey[400]),
+                              border: InputBorder.none,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                ],
-              ),
-            ),
-          ),
+                ),
 
-          // List Pabrik
-          Expanded(
-            child: ListView.builder(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              itemCount: factories.length,
-              itemBuilder: (context, index) {
-                final factory = factories[index];
-                return _buildFactoryCard(
-                  factory['name'],
-                  factory['location'],
-                  factory['health'],
-                );
-              },
+                // List Factories
+                Expanded(
+                  child: ListView.builder(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    itemCount: _factories.length,
+                    itemBuilder: (context, index) {
+                      final factory = _factories[index];
+                      return _buildFactoryCard(
+                        factory['nama_factory'] ??
+                            'Unknown Factory', // ✅ Ganti nama_station → nama_factory
+                        factory['lokasi_factory'] ??
+                            '', // ✅ Ganti lokasi_station → lokasi_factory
+                        (factory['health_factory'] ?? 0)
+                            .toDouble(), // ✅ Ganti health_station → health_factory
+                        factory['id_factory'] ??
+                            0, // ✅ Ganti id_station → id_factory
+                      );
+                    },
+                  ),
+                ),
+              ],
             ),
-          ),
-        ],
-      ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -162,44 +219,26 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  void _showLogoutDialog() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Logout'),
-        content: const Text('Apakah Anda yakin ingin logout?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Batal'),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              Navigator.pop(context);
-              await ApiService.logout();
-              if (mounted) {
-                Navigator.pushReplacementNamed(context, '/login');
-              }
-            },
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            child: const Text('Logout', style: TextStyle(color: Colors.white)),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildFactoryCard(String name, String location, int health) {
-    Color healthColor = health >= 90
+  Widget _buildFactoryCard(
+    String name,
+    String location,
+    double health,
+    int factoryId,
+  ) {
+    int healthInt = health.toInt();
+    Color healthColor = healthInt >= 90
         ? Colors.green
-        : (health >= 70 ? Colors.orange : Colors.red);
+        : (healthInt >= 70 ? Colors.orange : Colors.red);
 
     return GestureDetector(
       onTap: () {
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (context) => StationListScreen(factoryName: name),
+            builder: (context) => StationListScreen(
+              factoryName: name,
+              factoryId: factoryId, // ✅ Kirim factoryId
+            ),
           ),
         );
       },
@@ -257,7 +296,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
                 Text(
-                  'Health $health%',
+                  'Health $healthInt%',
                   style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.bold,
@@ -274,6 +313,33 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  void _showLogoutDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Logout'),
+        content: const Text('Apakah Anda yakin ingin logout?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Batal'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              Navigator.pop(context);
+              await ApiServices.logout();
+              if (mounted) {
+                Navigator.pushReplacementNamed(context, '/login');
+              }
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text('Logout', style: TextStyle(color: Colors.white)),
+          ),
+        ],
       ),
     );
   }
@@ -322,7 +388,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   void _onItemTapped(int index) {
     if (index == 0) {
-      Navigator.pushNamed(context, '/dashboard');
+      // Already on dashboard
     } else if (index == 1) {
       Navigator.pushNamed(context, '/submitted_data');
     }

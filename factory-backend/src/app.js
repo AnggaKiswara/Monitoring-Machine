@@ -16,6 +16,7 @@ const sensorReadingRoutes = require("./routes/sensorReading.routes");
 const alertRuleRoutes = require("./routes/alertRule.routes");
 const serviceAlertRoutes = require("./routes/serviceAlert.routes");
 const serviceHistoryRoutes = require("./routes/serviceHistory.routes");
+const factoryRoutes = require("./routes/factory.routes");
 
 const app = express();
 
@@ -48,6 +49,7 @@ app.get("/test-db", (req, res) => {
 
 // Routes
 app.use("/api/auth", authRoutes);
+app.use("/api/factories", factoryRoutes);
 app.use("/api/stations", stationRoutes);
 app.use("/api/machines", machineRoutes);
 app.use("/api/komponen", komponenRoutes);

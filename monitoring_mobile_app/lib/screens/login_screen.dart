@@ -17,7 +17,6 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _isLoading = false;
 
   Future<void> _doLogin() async {
-    // Validasi input
     if (_usernameController.text.isEmpty || _passwordController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -28,7 +27,6 @@ class _LoginScreenState extends State<LoginScreen> {
       return;
     }
 
-    // Show loading
     setState(() => _isLoading = true);
 
     try {
@@ -36,20 +34,18 @@ class _LoginScreenState extends State<LoginScreen> {
       print('Username: ${_usernameController.text.trim()}');
       print('Password: ${_passwordController.text}');
 
-      final result = await ApiService.login(
+      // ✅ FIXED: ApiServices (dengan 's')
+      final result = await ApiServices.login(
         _usernameController.text.trim(),
         _passwordController.text,
       );
 
       print('=== LOGIN RESPONSE ===');
       print('Result: $result');
-      print('Result type: ${result.runtimeType}');
 
-      // Login sukses
       setState(() => _isLoading = false);
 
       if (mounted) {
-        // Extract user data dengan safe access
         String userName = 'User';
         try {
           if (result.containsKey('user') && result['user'] != null) {
@@ -71,7 +67,6 @@ class _LoginScreenState extends State<LoginScreen> {
           ),
         );
 
-        // Navigate ke dashboard
         Navigator.pushReplacementNamed(context, '/dashboard');
       }
     } catch (e) {
@@ -79,7 +74,6 @@ class _LoginScreenState extends State<LoginScreen> {
 
       print('=== LOGIN ERROR ===');
       print('Error: $e');
-      print('Error type: ${e.runtimeType}');
 
       if (mounted) {
         String errorMessage = 'Login gagal';
@@ -92,10 +86,6 @@ class _LoginScreenState extends State<LoginScreen> {
             e.toString().contains('Connection')) {
           errorMessage =
               'Tidak dapat terhubung ke server. Periksa koneksi internet.';
-        } else if (e.toString().contains('Null') &&
-            e.toString().contains('String')) {
-          errorMessage =
-              'Response dari server tidak valid. Pastikan user sudah terdaftar.';
         } else {
           errorMessage = 'Error: ${e.toString()}';
         }
@@ -247,15 +237,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           ],
                         ),
                         TextButton(
-                          onPressed: () {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text(
-                                  'Fitur Forgot Password akan segera hadir',
-                                ),
-                              ),
-                            );
-                          },
+                          onPressed: () {},
                           child: const Text(
                             'Forgot?',
                             style: TextStyle(color: Color(0xFF2196F3)),
@@ -315,15 +297,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         children: [
                           const Text("Don't have account? "),
                           GestureDetector(
-                            onTap: () {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text(
-                                    'Fitur Sign Up akan segera hadir',
-                                  ),
-                                ),
-                              );
-                            },
+                            onTap: () {},
                             child: const Text(
                               'Sign Up',
                               style: TextStyle(

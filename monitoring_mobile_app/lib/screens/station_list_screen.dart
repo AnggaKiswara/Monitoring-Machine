@@ -1,10 +1,16 @@
 import 'package:flutter/material.dart';
-import 'machine_list_screen.dart'; // Import untuk navigasi
+import '../services/api_services.dart';
+import 'machine_list_screen.dart';
 
 class StationListScreen extends StatefulWidget {
   final String factoryName;
+  final int factoryId;
 
-  const StationListScreen({super.key, required this.factoryName});
+  const StationListScreen({
+    super.key,
+    required this.factoryName,
+    required this.factoryId,
+  });
 
   @override
   State<StationListScreen> createState() => _StationListScreenState();
@@ -12,32 +18,55 @@ class StationListScreen extends StatefulWidget {
 
 class _StationListScreenState extends State<StationListScreen> {
   int _selectedIndex = 1;
+  List<dynamic> _stations = [];
+  bool _loading = true;
+  String? _error;
 
-  // Data Dummy untuk Station
-  final List<Map<String, dynamic>> stations = [
-    {'name': 'Loading Ramp', 'health': 97, 'icon': Icons.local_shipping},
-    {'name': 'Sterilizer', 'health': 95, 'icon': Icons.eco},
-    {'name': 'Tipler', 'health': 95, 'icon': Icons.vertical_align_bottom},
-    {
-      'name': 'Digester & Press',
-      'health': 87,
-      'icon': Icons.precision_manufacturing,
-    },
-    {'name': 'Clarification', 'health': 81, 'icon': Icons.filter_list},
-    {'name': 'Nut & Kernel', 'health': 92, 'icon': Icons.grain},
-    {'name': 'Engine Room', 'health': 95, 'icon': Icons.engineering},
-    {'name': 'Boiler', 'health': 90, 'icon': Icons.local_fire_department},
-  ];
+  @override
+  void initState() {
+    super.initState();
+    _loadStations();
+  }
+
+  Future<void> _loadStations() async {
+    try {
+      setState(() {
+        _loading = true;
+        _error = null;
+      });
+
+      print('=== LOADING STATIONS FOR FACTORY ${widget.factoryId} ===');
+      // ✅ GANTI: Pakai getStationsByFactory()
+      final data = await ApiServices.getStationsByFactory(
+        factoryId: widget.factoryId,
+      );
+
+      print('Stations loaded: ${data.length}');
+
+      setState(() {
+        _stations = data;
+        _loading = false;
+      });
+    } catch (e) {
+      print('Error loading stations: $e');
+      setState(() {
+        _error = e.toString();
+        _loading = false;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    // Hitung statistik
-    int total = stations.length;
-    int good = stations.where((s) => s['health'] >= 90).length;
-    int warning = stations
-        .where((s) => s['health'] >= 70 && s['health'] < 90)
+    int total = _stations.length;
+    int good = _stations.where((s) => (s['health_station'] ?? 0) >= 90).length;
+    int warning = _stations.where((s) {
+      int h = (s['health_station'] ?? 0).toInt();
+      return h >= 70 && h < 90;
+    }).length;
+    int breakdown = _stations
+        .where((s) => (s['health_station'] ?? 0) < 70)
         .length;
-    int breakdown = stations.where((s) => s['health'] < 70).length;
 
     return Scaffold(
       backgroundColor: Colors.grey[50],
@@ -66,110 +95,135 @@ class _StationListScreenState extends State<StationListScreen> {
           ],
         ),
       ),
-      body: Column(
-        children: [
-          // Search Bar
-          Padding(
-            padding: const EdgeInsets.all(20),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(12),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.grey.withOpacity(0.1),
-                    spreadRadius: 1,
-                    blurRadius: 5,
+      body: _loading
+          ? const Center(child: CircularProgressIndicator())
+          : _error != null
+          ? Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.error, size: 60, color: Colors.red),
+                  const SizedBox(height: 20),
+                  Text('Error: $_error'),
+                  const SizedBox(height: 20),
+                  ElevatedButton(
+                    onPressed: _loadStations,
+                    child: const Text('Coba Lagi'),
                   ),
                 ],
               ),
-              child: Row(
-                children: [
-                  const Icon(Icons.search, color: Colors.grey),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: TextField(
-                      decoration: InputDecoration(
-                        hintText: 'Search station...',
-                        hintStyle: TextStyle(color: Colors.grey[400]),
-                        border: InputBorder.none,
-                      ),
+            )
+          : Column(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.grey.withOpacity(0.1),
+                          spreadRadius: 1,
+                          blurRadius: 5,
+                        ),
+                      ],
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.search, color: Colors.grey),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: TextField(
+                            decoration: InputDecoration(
+                              hintText: 'Search station...',
+                              hintStyle: TextStyle(color: Colors.grey[400]),
+                              border: InputBorder.none,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                ],
-              ),
-            ),
-          ),
-
-          // Overall Stats (4 Indikator)
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: const Color(0xFF1a2332),
-                borderRadius: BorderRadius.circular(15),
-              ),
-              child: Column(
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceAround,
-                    children: [
-                      _buildStatItem('Total Station', '$total', Colors.white),
-                      Container(width: 1, height: 40, color: Colors.white24),
-                      _buildStatItem(
-                        'Good Condition',
-                        '$good',
-                        Colors.green[300]!,
-                      ),
-                    ],
+                ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF1a2332),
+                      borderRadius: BorderRadius.circular(15),
+                    ),
+                    child: Column(
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceAround,
+                          children: [
+                            _buildStatItem(
+                              'Total Station',
+                              '$total',
+                              Colors.white,
+                            ),
+                            Container(
+                              width: 1,
+                              height: 40,
+                              color: Colors.white24,
+                            ),
+                            _buildStatItem(
+                              'Good Condition',
+                              '$good',
+                              Colors.green[300]!,
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        const Divider(color: Colors.white24, thickness: 1),
+                        const SizedBox(height: 12),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceAround,
+                          children: [
+                            _buildStatItem(
+                              'Warning Condition',
+                              '$warning',
+                              Colors.orange[300]!,
+                            ),
+                            Container(
+                              width: 1,
+                              height: 40,
+                              color: Colors.white24,
+                            ),
+                            _buildStatItem(
+                              'Breakdown Condition',
+                              '$breakdown',
+                              Colors.red[300]!,
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
                   ),
-                  const SizedBox(height: 12),
-                  const Divider(color: Colors.white24, thickness: 1),
-                  const SizedBox(height: 12),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceAround,
-                    children: [
-                      _buildStatItem(
-                        'Warning Condition',
-                        '$warning',
-                        Colors.orange[300]!,
-                      ),
-                      Container(width: 1, height: 40, color: Colors.white24),
-                      _buildStatItem(
-                        'Breakdown Condition',
-                        '$breakdown',
-                        Colors.red[300]!,
-                      ),
-                    ],
+                ),
+                const SizedBox(height: 20),
+                Expanded(
+                  child: ListView.builder(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    itemCount: _stations.length,
+                    itemBuilder: (context, index) {
+                      final station = _stations[index];
+                      return _buildStationCard(
+                        station['nama_station'] ?? 'Unknown Station',
+                        (station['health_station'] ?? 0).toDouble(),
+                        _getStationIcon(station['nama_station'] ?? ''),
+                      );
+                    },
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
-          ),
-
-          const SizedBox(height: 20),
-
-          // List Station
-          Expanded(
-            child: ListView.builder(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              itemCount: stations.length,
-              itemBuilder: (context, index) {
-                final station = stations[index];
-                return _buildStationCard(
-                  station['name'],
-                  station['health'],
-                  station['icon'],
-                );
-              },
-            ),
-          ),
-        ],
-      ),
-
-      // Bottom Navigation Bar
       bottomNavigationBar: _buildBottomNavigationBar(),
     );
   }
@@ -199,27 +253,34 @@ class _StationListScreenState extends State<StationListScreen> {
     );
   }
 
-  Widget _buildStationCard(String name, int health, IconData icon) {
-    Color healthColor;
-    String status;
+  IconData _getStationIcon(String stationName) {
+    String name = stationName.toLowerCase();
+    if (name.contains('loading') || name.contains('ramp'))
+      return Icons.local_shipping;
+    if (name.contains('sterilizer')) return Icons.eco;
+    if (name.contains('digester') || name.contains('press'))
+      return Icons.precision_manufacturing;
+    if (name.contains('clarification')) return Icons.filter_list;
+    if (name.contains('boiler')) return Icons.local_fire_department;
+    return Icons.settings;
+  }
 
-    if (health >= 90) {
-      healthColor = Colors.green;
-      status = 'Excellent';
-    } else if (health >= 70) {
-      healthColor = Colors.orange;
-      status = 'Good';
-    } else {
-      healthColor = Colors.red;
-      status = 'Attention';
-    }
+  Widget _buildStationCard(String name, double health, IconData icon) {
+    int healthInt = health.toInt();
+    Color healthColor = healthInt >= 90
+        ? Colors.green
+        : (healthInt >= 70 ? Colors.orange : Colors.red);
+    String status = healthInt >= 90
+        ? 'Excellent'
+        : (healthInt >= 70 ? 'Good' : 'Attention');
 
     return GestureDetector(
       onTap: () {
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (context) => MachineListScreen(stationName: name),
+            builder: (context) =>
+                MachineListScreen(stationName: name, stationId: 1),
           ),
         );
       },
@@ -249,7 +310,6 @@ class _StationListScreenState extends State<StationListScreen> {
               child: Icon(icon, color: const Color(0xFF1a2332), size: 24),
             ),
             const SizedBox(width: 15),
-
             Expanded(
               child: Text(
                 name,
@@ -260,12 +320,11 @@ class _StationListScreenState extends State<StationListScreen> {
                 ),
               ),
             ),
-
             Column(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
                 Text(
-                  '$health%',
+                  '$healthInt%',
                   style: TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
@@ -304,9 +363,7 @@ class _StationListScreenState extends State<StationListScreen> {
       type: BottomNavigationBarType.fixed,
       currentIndex: _selectedIndex,
       onTap: (index) {
-        setState(() {
-          _selectedIndex = index;
-        });
+        setState(() => _selectedIndex = index);
         _onItemTapped(index);
       },
       selectedItemColor: const Color(0xFF2196F3),
@@ -345,7 +402,6 @@ class _StationListScreenState extends State<StationListScreen> {
     if (index == 0) {
       Navigator.pushNamed(context, '/dashboard');
     } else if (index == 1) {
-      // ✅ Tab Station → Submitted Data
       Navigator.pushNamed(context, '/submitted_data');
     }
   }

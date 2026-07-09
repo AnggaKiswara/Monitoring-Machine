@@ -124,7 +124,10 @@ class _FactoryListScreenState extends State<FactoryListScreen> {
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (context) => StationListScreen(factoryName: name),
+            builder: (context) => StationListScreen(
+              factoryName: name,
+              factoryId: 1, // Atau ambil dari data jika ada
+            ),
           ),
         );
       },

@@ -1,44 +1,74 @@
 import 'package:flutter/material.dart';
-import 'machine_detail_screen.dart'; // Navigasi ke detail Lori
+import '../services/api_services.dart';
+import 'machine_detail_screen.dart';
 
 class MachineListScreen extends StatefulWidget {
   final String stationName;
+  final int stationId;
 
-  const MachineListScreen({super.key, required this.stationName});
+  const MachineListScreen({
+    super.key,
+    required this.stationName,
+    required this.stationId,
+  });
 
   @override
   State<MachineListScreen> createState() => _MachineListScreenState();
 }
 
 class _MachineListScreenState extends State<MachineListScreen> {
-  int _selectedIndex = 1;
+  List<dynamic> _loriList = [];
+  bool _loading = true;
+  String? _error;
 
-  // Data Sub-Unit (Mesin) di dalam Station
-  final List<Map<String, dynamic>> subUnits = [
-    {'name': 'Lori', 'health': 89, 'icon': Icons.directions_railway},
-    {'name': 'Capstand', 'health': 94, 'icon': Icons.rotate_right},
-    {
-      'name': 'Hydraulic Power Unit (HPU)',
-      'health': 91,
-      'icon': Icons.settings_suggest,
-    },
-    {'name': 'Transfer Carriage', 'health': 88, 'icon': Icons.swap_horiz},
-    {'name': 'Belt Track', 'health': 95, 'icon': Icons.view_stream},
-  ];
+  @override
+  void initState() {
+    super.initState();
+    _loadLoriList();
+  }
+
+  Future<void> _loadLoriList() async {
+    try {
+      setState(() {
+        _loading = true;
+        _error = null;
+      });
+
+      print('=== LOADING LORI FOR STATION ${widget.stationId} ===');
+      final data = await ApiServices.getMachines(stationId: widget.stationId);
+
+      print('Lori loaded: ${data.length}');
+
+      setState(() {
+        _loriList = data;
+        _loading = false;
+      });
+    } catch (e) {
+      print('Error loading lori: $e');
+      setState(() {
+        _error = e.toString();
+        _loading = false;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    // Hitung Overall Health (Rata-rata)
-    int totalHealth =
-        subUnits.fold(0, (sum, item) => sum + (item['health'] as int)) ~/
-        subUnits.length;
+    // ✅ FIXED: Calculation dengan type casting yang benar
+    int totalHealth = 0;
+    if (_loriList.isNotEmpty) {
+      num sum = 0;
+      for (var item in _loriList) {
+        num healthValue = (item['health_mesin'] ?? 0) as num;
+        sum += healthValue;
+      }
+      totalHealth = (sum ~/ _loriList.length).toInt();
+    }
 
     return Scaffold(
       backgroundColor: Colors.grey[50],
       appBar: AppBar(
-        backgroundColor: const Color(
-          0xFF1a2332,
-        ), // Dark blue header sesuai gambar
+        backgroundColor: const Color(0xFF1a2332),
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios, color: Colors.white),
@@ -52,112 +82,149 @@ class _MachineListScreenState extends State<MachineListScreen> {
           ),
         ),
       ),
-      body: Column(
-        children: [
-          // Header Card (Overall Health)
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(20),
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.only(
-                bottomLeft: Radius.circular(20),
-                bottomRight: Radius.circular(20),
+      body: _loading
+          ? const Center(child: CircularProgressIndicator())
+          : _error != null
+          ? Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.error, size: 60, color: Colors.red),
+                  const SizedBox(height: 20),
+                  Text('Error: $_error'),
+                  const SizedBox(height: 20),
+                  ElevatedButton(
+                    onPressed: _loadLoriList,
+                    child: const Text('Coba Lagi'),
+                  ),
+                ],
               ),
-              boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 5)],
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            )
+          : Column(
               children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Overall Health',
-                      style: TextStyle(color: Colors.grey, fontSize: 14),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(20),
+                  decoration: const BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.only(
+                      bottomLeft: Radius.circular(20),
+                      bottomRight: Radius.circular(20),
                     ),
-                    Text(
-                      '${totalHealth.toInt()}%',
-                      style: TextStyle(
-                        fontSize: 32,
-                        fontWeight: FontWeight.bold,
-                        color: _getColor(totalHealth.toInt()),
-                      ),
-                    ),
-                    Text(
-                      '${subUnits.length} Unit Mesin',
-                      style: TextStyle(color: Colors.grey[600]),
-                    ),
-                  ],
-                ),
-                SizedBox(
-                  height: 80,
-                  width: 80,
-                  child: Stack(
+                    boxShadow: [
+                      BoxShadow(color: Colors.black12, blurRadius: 5),
+                    ],
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      CircularProgressIndicator(
-                        value: totalHealth / 100,
-                        strokeWidth: 8,
-                        backgroundColor: Colors.grey[200],
-                        valueColor: AlwaysStoppedAnimation<Color>(
-                          _getColor(totalHealth.toInt()),
-                        ),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Overall Health',
+                            style: TextStyle(color: Colors.grey, fontSize: 14),
+                          ),
+                          Text(
+                            '$totalHealth%',
+                            style: TextStyle(
+                              fontSize: 32,
+                              fontWeight: FontWeight.bold,
+                              color: _getColor(totalHealth),
+                            ),
+                          ),
+                          Text(
+                            '${_loriList.length} Unit Lori',
+                            style: TextStyle(color: Colors.grey[600]),
+                          ),
+                        ],
                       ),
-                      Center(
-                        child: Icon(
-                          Icons.check_circle,
-                          color: _getColor(totalHealth.toInt()),
-                          size: 30,
+                      SizedBox(
+                        height: 80,
+                        width: 80,
+                        child: Stack(
+                          children: [
+                            CircularProgressIndicator(
+                              value: totalHealth / 100,
+                              strokeWidth: 8,
+                              backgroundColor: Colors.grey[200],
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                _getColor(totalHealth),
+                              ),
+                            ),
+                            Center(
+                              child: Icon(
+                                Icons.check_circle,
+                                color: _getColor(totalHealth),
+                                size: 30,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ],
                   ),
                 ),
+                const SizedBox(height: 20),
+                Expanded(
+                  child: _loriList.isEmpty
+                      ? Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Icon(
+                                Icons.train,
+                                size: 80,
+                                color: Colors.grey,
+                              ),
+                              const SizedBox(height: 20),
+                              Text(
+                                'Belum ada Lori di Station ini',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  color: Colors.grey[600],
+                                ),
+                              ),
+                            ],
+                          ),
+                        )
+                      : ListView.builder(
+                          padding: const EdgeInsets.symmetric(horizontal: 20),
+                          itemCount: _loriList.length,
+                          itemBuilder: (context, index) {
+                            final lori = _loriList[index];
+                            return _buildLoriCard(
+                              index + 1,
+                              lori['nama_mesin'] ?? 'Lori Unknown',
+                              (lori['health_mesin'] ?? 0).toDouble(),
+                              lori['id_mesin'] ?? 0,
+                            );
+                          },
+                        ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: Text(
+                    'Terakhir Diperbarui: ${DateTime.now().toString().substring(0, 16)}',
+                    style: TextStyle(color: Colors.grey[500], fontSize: 12),
+                  ),
+                ),
               ],
             ),
-          ),
-
-          const SizedBox(height: 20),
-
-          // List Sub-Unit
-          Expanded(
-            child: ListView.builder(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              itemCount: subUnits.length,
-              itemBuilder: (context, index) {
-                final unit = subUnits[index];
-                return _buildSubUnitCard(
-                  index + 1,
-                  unit['name'],
-                  unit['health'],
-                  unit['icon'],
-                );
-              },
-            ),
-          ),
-
-          // Footer Last Updated
-          Padding(
-            padding: const EdgeInsets.all(20),
-            child: Text(
-              'Terakhir Diperbarui: 02 Jul 2026 10:30',
-              style: TextStyle(color: Colors.grey[500], fontSize: 12),
-            ),
-          ),
-        ],
-      ),
     );
   }
 
-  Widget _buildSubUnitCard(int number, String name, int health, IconData icon) {
-    Color color = _getColor(health);
+  Widget _buildLoriCard(int number, String name, double health, int machineId) {
+    int healthInt = health.toInt();
+    Color color = _getColor(healthInt);
+
     return GestureDetector(
       onTap: () {
-        // Navigasi ke Machine Detail (Lori Overall)
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (context) => MachineDetailScreen(machineName: name),
+            builder: (context) =>
+                MachineDetailScreen(machineName: name, machineId: machineId),
           ),
         );
       },
@@ -167,9 +234,14 @@ class _MachineListScreenState extends State<MachineListScreen> {
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(12),
-          border: name == 'Lori'
-              ? Border.all(color: Colors.blue, width: 2)
-              : null, // Highlight Lori
+          border: Border.all(color: Colors.blue, width: 2),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.grey.withOpacity(0.05),
+              spreadRadius: 1,
+              blurRadius: 5,
+            ),
+          ],
         ),
         child: Row(
           children: [
@@ -182,7 +254,7 @@ class _MachineListScreenState extends State<MachineListScreen> {
               ),
             ),
             const SizedBox(width: 15),
-            Icon(icon, color: const Color(0xFF1a2332)),
+            const Icon(Icons.directions_railway, color: Color(0xFF1a2332)),
             const SizedBox(width: 15),
             Expanded(
               child: Text(
@@ -194,7 +266,7 @@ class _MachineListScreenState extends State<MachineListScreen> {
               ),
             ),
             Text(
-              '$health%',
+              '$healthInt%',
               style: TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.bold,

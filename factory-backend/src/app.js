@@ -62,7 +62,7 @@ app.use("/api/service-history", serviceHistoryRoutes);
 
 // 404 handler
 app.use((req, res) => {
-  res.status(404).json({ success: false, message: "Endpoint tidak ditemukan" });
+  res.status(404).json({ success: false, message: "Endpoint not found :)" });
 });
 
 // Error handler (harus paling bawah)

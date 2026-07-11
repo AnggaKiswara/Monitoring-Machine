@@ -284,6 +284,44 @@ class ApiServices {
     }
   }
 
+  // ✅ TAMBAHKAN INI - Create Machine
+  static Future<Map<String, dynamic>> createMachine({
+    required int stationId,
+    required String kodeMesin, // ✅ TAMBAHKAN PARAMETER
+    required String namaMesin,
+  }) async {
+    final headers = await _getHeaders();
+
+    print('=== CREATE MACHINE REQUEST ===');
+    print('URL: $baseUrl/machines');
+    print(
+      'Body: id_station=$stationId, kode_mesin=$kodeMesin, nama_mesin=$namaMesin',
+    );
+
+    final response = await http.post(
+      Uri.parse('$baseUrl/machines'),
+      headers: headers,
+      body: json.encode({
+        'id_station': stationId,
+        'kode_mesin': kodeMesin, // ✅ TAMBAHKAN
+        'nama_mesin': namaMesin,
+        'health_mesin': 0,
+      }),
+    );
+
+    print('=== CREATE MACHINE RESPONSE ===');
+    print('Status Code: ${response.statusCode}');
+    print('Response Body: ${response.body}');
+
+    if (response.statusCode == 201 || response.statusCode == 200) {
+      dynamic decoded = json.decode(response.body);
+      return _extractData(decoded) as Map<String, dynamic>;
+    } else {
+      dynamic decoded = json.decode(response.body);
+      String message = decoded['message'] ?? 'Gagal menambah machine';
+      throw Exception(message);
+    }
+  }
   // ==================== KOMPONEN ====================
 
   static Future<List<dynamic>> getKomponen({required int mesinId}) async {

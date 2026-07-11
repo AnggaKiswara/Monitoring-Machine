@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../services/api_services.dart';
 import 'machine_detail_screen.dart';
+import 'add_machine_screen.dart'; // ✅ TAMBAHKAN IMPORT INI
 
 class MachineListScreen extends StatefulWidget {
   final String stationName;
@@ -211,6 +212,31 @@ class _MachineListScreenState extends State<MachineListScreen> {
                 ),
               ],
             ),
+      // ✅ TAMBAHKAN FLOATING ACTION BUTTON INI
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () async {
+          final result = await Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => AddMachineScreen(
+                stationId: widget.stationId,
+                stationName: widget.stationName,
+              ),
+            ),
+          );
+
+          // Refresh list jika ada data baru
+          if (result == true) {
+            _loadLoriList();
+          }
+        },
+        backgroundColor: const Color(0xFF2196F3),
+        icon: const Icon(Icons.add, color: Colors.white),
+        label: const Text(
+          'Tambah Lori',
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+        ),
+      ),
     );
   }
 

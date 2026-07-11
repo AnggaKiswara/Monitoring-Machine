@@ -1,9 +1,19 @@
 const crudFactory = require("../utils/crudFactory");
+const db = require("../config/db"); // ← TAMBAHKAN INI
 
-module.exports = crudFactory("machine", "id_mesin");
+// Simpan hasil crudFactory ke variable
+const crud = crudFactory("machine", "id_mesin");
+
+// Export method dari crudFactory
+module.exports = {
+  getAll: crud.getAll,
+  getOne: crud.getOne,
+  update: crud.update,
+  remove: crud.remove,
+};
 
 // POST - Create machine baru
-exports.create = async (req, res) => {
+module.exports.create = async (req, res) => {
   try {
     const { id_station, kode_mesin, nama_mesin, health_mesin } = req.body;
 
@@ -33,7 +43,7 @@ exports.create = async (req, res) => {
 };
 
 // POST - Update HM
-exports.updateHM = async (req, res) => {
+module.exports.updateHM = async (req, res) => {
   try {
     const { id } = req.params;
     const { hm_current } = req.body;
@@ -82,7 +92,7 @@ exports.updateHM = async (req, res) => {
 };
 
 // POST - Record PM
-exports.recordPM = async (req, res) => {
+module.exports.recordPM = async (req, res) => {
   try {
     const { id } = req.params;
     const { tanggal_service, keterangan } = req.body;
@@ -122,7 +132,7 @@ exports.recordPM = async (req, res) => {
 };
 
 // GET - Get service history
-exports.getServiceHistory = async (req, res) => {
+module.exports.getServiceHistory = async (req, res) => {
   try {
     const { id } = req.params;
     const { limit = 10, offset = 0 } = req.query;
@@ -154,7 +164,7 @@ exports.getServiceHistory = async (req, res) => {
 };
 
 // GET - Get PM status
-exports.getPMStatus = async (req, res) => {
+module.exports.getPMStatus = async (req, res) => {
   try {
     const { id } = req.params;
 

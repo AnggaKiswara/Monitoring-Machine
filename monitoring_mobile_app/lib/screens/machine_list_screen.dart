@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../services/api_services.dart';
 import 'machine_detail_screen.dart';
-import 'add_machine_screen.dart'; // ✅ TAMBAHKAN IMPORT INI
+import 'add_machine_screen.dart';
 
 class MachineListScreen extends StatefulWidget {
   final String stationName;
@@ -21,6 +21,24 @@ class _MachineListScreenState extends State<MachineListScreen> {
   List<dynamic> _loriList = [];
   bool _loading = true;
   String? _error;
+
+  // ✅ HELPER FUNCTION - Konversi aman ke double
+  double _toDouble(dynamic value) {
+    if (value == null) return 0;
+    if (value is double) return value;
+    if (value is int) return value.toDouble();
+    if (value is String) return double.tryParse(value) ?? 0;
+    return 0;
+  }
+
+  // ✅ HELPER FUNCTION - Konversi aman ke int
+  int _toInt(dynamic value) {
+    if (value == null) return 0;
+    if (value is int) return value;
+    if (value is double) return value.toInt();
+    if (value is String) return int.tryParse(value) ?? 0;
+    return 0;
+  }
 
   @override
   void initState() {
@@ -55,15 +73,14 @@ class _MachineListScreenState extends State<MachineListScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // ✅ FIXED: Calculation dengan type casting yang benar
+    // ✅ FIXED: Pakai helper function untuk konversi
     int totalHealth = 0;
     if (_loriList.isNotEmpty) {
-      num sum = 0;
+      double sum = 0;
       for (var item in _loriList) {
-        num healthValue = (item['health_mesin'] ?? 0) as num;
-        sum += healthValue;
+        sum += _toDouble(item['health_mesin']);
       }
-      totalHealth = (sum ~/ _loriList.length).toInt();
+      totalHealth = (sum / _loriList.length).round();
     }
 
     return Scaffold(
@@ -197,8 +214,8 @@ class _MachineListScreenState extends State<MachineListScreen> {
                             return _buildLoriCard(
                               index + 1,
                               lori['nama_mesin'] ?? 'Lori Unknown',
-                              (lori['health_mesin'] ?? 0).toDouble(),
-                              lori['id_mesin'] ?? 0,
+                              _toDouble(lori['health_mesin']), // ✅ Pakai helper
+                              _toInt(lori['id_mesin']), // ✅ Pakai helper
                             );
                           },
                         ),
@@ -212,7 +229,6 @@ class _MachineListScreenState extends State<MachineListScreen> {
                 ),
               ],
             ),
-      // ✅ TAMBAHKAN FLOATING ACTION BUTTON INI
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () async {
           final result = await Navigator.push(
@@ -225,7 +241,6 @@ class _MachineListScreenState extends State<MachineListScreen> {
             ),
           );
 
-          // Refresh list jika ada data baru
           if (result == true) {
             _loadLoriList();
           }
@@ -245,7 +260,10 @@ class _MachineListScreenState extends State<MachineListScreen> {
     Color color = _getColor(healthInt);
 
     // ✅ Cari data lori lengkap
-    final lori = _loriList.firstWhere((l) => l['id_mesin'] == machineId);
+    final lori = _loriList.firstWhere(
+      (l) => _toInt(l['id_mesin']) == machineId,
+      orElse: () => {},
+    );
 
     return GestureDetector(
       onTap: () {
@@ -255,9 +273,10 @@ class _MachineListScreenState extends State<MachineListScreen> {
             builder: (context) => MachineDetailScreen(
               machineName: name,
               machineId: machineId,
-              kodeMesin: lori['kode_mesin'] ?? '', // ✅ Kirim kode_mesin
-              currentHM: (lori['hm_current'] ?? 0)
-                  .toDouble(), // ✅ Kirim hm_current
+              kodeMesin: lori.isNotEmpty
+                  ? (lori['kode_mesin']?.toString() ?? '')
+                  : '',
+              currentHM: lori.isNotEmpty ? _toDouble(lori['hm_current']) : 0,
             ),
           ),
         );
@@ -301,7 +320,8 @@ class _MachineListScreenState extends State<MachineListScreen> {
                       fontWeight: FontWeight.w600,
                     ),
                   ),
-                  if (lori['kode_mesin'] != null &&
+                  if (lori.isNotEmpty &&
+                      lori['kode_mesin'] != null &&
                       lori['kode_mesin'].toString().isNotEmpty)
                     Text(
                       'Kode: ${lori['kode_mesin']}',

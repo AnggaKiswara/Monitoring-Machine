@@ -22,20 +22,17 @@ class InputInspectionScreen extends StatefulWidget {
 
 class _InputInspectionScreenState extends State<InputInspectionScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _hmController = TextEditingController();
-  final _keteranganController = TextEditingController();
+  final _picController = TextEditingController();
 
   DateTime _tanggalInspeksi = DateTime.now();
   DateTime? _tanggalPM;
   bool _isLoading = false;
-  bool _isPMMode = false;
   Map<String, dynamic>? _pmStatus;
 
   @override
   void initState() {
     super.initState();
     _loadPMStatus();
-    _hmController.text = widget.currentHM.toString();
   }
 
   Future<void> _loadPMStatus() async {
@@ -64,43 +61,58 @@ class _InputInspectionScreenState extends State<InputInspectionScreen> {
   Future<void> _selectTanggalPM() async {
     final picked = await showDatePicker(
       context: context,
-      initialDate: _tanggalPM ?? DateTime.now(),
-      firstDate: DateTime(2020),
-      lastDate: DateTime.now(),
+      initialDate: _tanggalPM ?? _tanggalInspeksi,
+      firstDate: _tanggalInspeksi, // ✅ Minimal = tanggal inspeksi
+      lastDate: _tanggalInspeksi.add(
+        const Duration(days: 7),
+      ), // ✅ Maksimal 7 hari setelah inspeksi
     );
     if (picked != null) {
       setState(() => _tanggalPM = picked);
     }
   }
 
+  // ✅ Hitung Next PM (7 hari setelah inspeksi)
+  DateTime get _nextPM {
+    if (_tanggalPM == null)
+      return _tanggalInspeksi.add(const Duration(days: 7));
+    return _tanggalPM!.add(const Duration(days: 0));
+  }
+
+  // ✅ Hitung sisa hari
+  int get _sisaHari {
+    if (_tanggalPM == null) return 0;
+    final now = DateTime.now();
+    final diff = _tanggalPM!.difference(now).inDays;
+    return diff > 0 ? diff : 0;
+  }
+
   Future<void> _submitInspection() async {
     if (!_formKey.currentState!.validate()) return;
+    if (_tanggalPM == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Tanggal PM wajib diisi'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
 
     setState(() => _isLoading = true);
 
     try {
-      if (_isPMMode) {
-        // Record PM
-        await ApiServices.recordPM(
-          machineId: widget.machineId,
-          tanggalService: _tanggalPM,
-          keterangan: _keteranganController.text,
-        );
-      } else {
-        // Update HM
-        final hmValue = double.parse(_hmController.text);
-        await ApiServices.updateHM(
-          machineId: widget.machineId,
-          hmCurrent: hmValue,
-        );
-      }
+      // Record PM
+      await ApiServices.recordPM(
+        machineId: widget.machineId,
+        tanggalService: _tanggalPM,
+        keterangan: _picController.text.trim(),
+      );
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              _isPMMode ? 'PM berhasil dicatat' : 'HM berhasil diupdate',
-            ),
+          const SnackBar(
+            content: Text('Inspeksi dan PM berhasil dicatat'),
             backgroundColor: Colors.green,
           ),
         );
@@ -145,7 +157,7 @@ class _InputInspectionScreenState extends State<InputInspectionScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    // Info Machine Card
+                    // 1️⃣ INFO MACHINE CARD
                     Container(
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
@@ -202,148 +214,7 @@ class _InputInspectionScreenState extends State<InputInspectionScreen> {
                     ),
                     const SizedBox(height: 20),
 
-                    // Toggle HM/PM Mode
-                    Container(
-                      padding: const EdgeInsets.all(4),
-                      decoration: BoxDecoration(
-                        color: Colors.grey[200],
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: GestureDetector(
-                              onTap: () => setState(() => _isPMMode = false),
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 12,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: !_isPMMode
-                                      ? Colors.white
-                                      : Colors.transparent,
-                                  borderRadius: BorderRadius.circular(10),
-                                  boxShadow: !_isPMMode
-                                      ? [
-                                          BoxShadow(
-                                            color: Colors.grey.withOpacity(0.2),
-                                            blurRadius: 4,
-                                          ),
-                                        ]
-                                      : null,
-                                ),
-                                child: Text(
-                                  'Update HM',
-                                  textAlign: TextAlign.center,
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    color: !_isPMMode
-                                        ? Colors.blue
-                                        : Colors.grey,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                          Expanded(
-                            child: GestureDetector(
-                              onTap: () => setState(() => _isPMMode = true),
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 12,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: _isPMMode
-                                      ? Colors.white
-                                      : Colors.transparent,
-                                  borderRadius: BorderRadius.circular(10),
-                                  boxShadow: _isPMMode
-                                      ? [
-                                          BoxShadow(
-                                            color: Colors.grey.withOpacity(0.2),
-                                            blurRadius: 4,
-                                          ),
-                                        ]
-                                      : null,
-                                ),
-                                child: Text(
-                                  'Record PM',
-                                  textAlign: TextAlign.center,
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    color: _isPMMode
-                                        ? Colors.blue
-                                        : Colors.grey,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-
-                    // PM Status Alert (jika mode PM)
-                    if (_isPMMode && _pmStatus != null)
-                      Container(
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: (_pmStatus!['need_pm'] as bool ?? false)
-                              ? Colors.orange[50]
-                              : Colors.green[50],
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                            color: (_pmStatus!['need_pm'] as bool ?? false)
-                                ? Colors.orange
-                                : Colors.green,
-                          ),
-                        ),
-                        child: Row(
-                          children: [
-                            Icon(
-                              (_pmStatus!['need_pm'] as bool ?? false)
-                                  ? Icons.warning
-                                  : Icons.check_circle,
-                              color: (_pmStatus!['need_pm'] as bool ?? false)
-                                  ? Colors.orange
-                                  : Colors.green,
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    (_pmStatus!['need_pm'] as bool ?? false)
-                                        ? 'Perlu PM!'
-                                        : 'Masih Baik',
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      color:
-                                          (_pmStatus!['need_pm'] as bool ??
-                                              false)
-                                          ? Colors.orange[900]
-                                          : Colors.green[900],
-                                    ),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    'Sisa ${_pmStatus!['hours_until_pm']?.toStringAsFixed(0)} jam / ${_pmStatus!['days_until_pm']} hari',
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      color: Colors.grey[700],
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    if (_isPMMode) const SizedBox(height: 20),
-
-                    // Form Fields
+                    // 2️⃣ TANGGAL INSPEKSI
                     Container(
                       padding: const EdgeInsets.all(20),
                       decoration: BoxDecoration(
@@ -360,22 +231,21 @@ class _InputInspectionScreenState extends State<InputInspectionScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          // Tanggal Inspeksi
                           const Text(
                             'Tanggal Inspeksi',
                             style: TextStyle(
-                              fontSize: 12,
-                              color: Colors.grey,
-                              fontWeight: FontWeight.w600,
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF1a2332),
                             ),
                           ),
-                          const SizedBox(height: 8),
+                          const SizedBox(height: 12),
                           InkWell(
                             onTap: _selectTanggalInspeksi,
                             child: Container(
                               padding: const EdgeInsets.symmetric(
                                 horizontal: 16,
-                                vertical: 12,
+                                vertical: 14,
                               ),
                               decoration: BoxDecoration(
                                 border: Border.all(color: Colors.grey[300]!),
@@ -392,7 +262,7 @@ class _InputInspectionScreenState extends State<InputInspectionScreen> {
                                   Expanded(
                                     child: Text(
                                       dateFormat.format(_tanggalInspeksi),
-                                      style: const TextStyle(fontSize: 14),
+                                      style: const TextStyle(fontSize: 15),
                                     ),
                                   ),
                                   Icon(
@@ -403,136 +273,250 @@ class _InputInspectionScreenState extends State<InputInspectionScreen> {
                               ),
                             ),
                           ),
-                          const SizedBox(height: 20),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
 
-                          // HM Value (jika mode HM)
-                          if (!_isPMMode) ...[
-                            const Text(
-                              'Nilai HM Saat Ini',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: Colors.grey,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            TextFormField(
-                              controller: _hmController,
-                              keyboardType:
-                                  const TextInputType.numberWithOptions(
-                                    decimal: true,
-                                  ),
-                              decoration: InputDecoration(
-                                hintText: 'Masukkan nilai HM',
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                contentPadding: const EdgeInsets.symmetric(
-                                  horizontal: 16,
-                                  vertical: 12,
-                                ),
-                                suffixText: 'Jam',
-                              ),
-                              validator: (value) {
-                                if (value == null || value.isEmpty) {
-                                  return 'HM wajib diisi';
-                                }
-                                if (double.tryParse(value) == null) {
-                                  return 'Harus berupa angka';
-                                }
-                                if (double.parse(value) < widget.currentHM) {
-                                  return 'HM harus lebih besar dari saat ini';
-                                }
-                                return null;
-                              },
-                            ),
-                            const SizedBox(height: 20),
-                          ],
-
-                          // Tanggal PM (jika mode PM)
-                          if (_isPMMode) ...[
-                            const Text(
-                              'Tanggal PM',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: Colors.grey,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            InkWell(
-                              onTap: _selectTanggalPM,
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 16,
-                                  vertical: 12,
-                                ),
-                                decoration: BoxDecoration(
-                                  border: Border.all(color: Colors.grey[300]!),
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: Row(
-                                  children: [
-                                    Icon(
-                                      Icons.calendar_today,
-                                      color: Colors.grey[600],
-                                      size: 20,
-                                    ),
-                                    const SizedBox(width: 12),
-                                    Expanded(
-                                      child: Text(
-                                        _tanggalPM != null
-                                            ? dateFormat.format(_tanggalPM!)
-                                            : 'Pilih tanggal PM',
-                                        style: TextStyle(
-                                          fontSize: 14,
-                                          color: _tanggalPM != null
-                                              ? Colors.black
-                                              : Colors.grey,
-                                        ),
-                                      ),
-                                    ),
-                                    Icon(
-                                      Icons.arrow_drop_down,
-                                      color: Colors.grey[600],
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                            const SizedBox(height: 20),
-                          ],
-
-                          // Keterangan
+                    // 3️⃣ TANGGAL TERAKHIR PM
+                    Container(
+                      padding: const EdgeInsets.all(20),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(16),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.grey.withOpacity(0.1),
+                            spreadRadius: 2,
+                            blurRadius: 8,
+                          ),
+                        ],
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
                           const Text(
-                            'Keterangan (Opsional)',
+                            'Tanggal Terakhir PM',
                             style: TextStyle(
-                              fontSize: 12,
-                              color: Colors.grey,
-                              fontWeight: FontWeight.w600,
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF1a2332),
                             ),
                           ),
-                          const SizedBox(height: 8),
-                          TextFormField(
-                            controller: _keteranganController,
-                            maxLines: 3,
-                            decoration: InputDecoration(
-                              hintText: 'Catatan tambahan...',
-                              border: OutlineInputBorder(
+                          const SizedBox(height: 12),
+                          InkWell(
+                            onTap: _selectTanggalPM,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 14,
+                              ),
+                              decoration: BoxDecoration(
+                                border: Border.all(color: Colors.grey[300]!),
                                 borderRadius: BorderRadius.circular(12),
                               ),
-                              contentPadding: const EdgeInsets.symmetric(
-                                horizontal: 16,
-                                vertical: 12,
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    Icons.event_available,
+                                    color: Colors.grey[600],
+                                    size: 20,
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Text(
+                                      _tanggalPM != null
+                                          ? dateFormat.format(_tanggalPM!)
+                                          : 'Pilih tanggal PM',
+                                      style: TextStyle(
+                                        fontSize: 15,
+                                        color: _tanggalPM != null
+                                            ? Colors.black
+                                            : Colors.grey,
+                                      ),
+                                    ),
+                                  ),
+                                  Icon(
+                                    Icons.arrow_drop_down,
+                                    color: Colors.grey[600],
+                                  ),
+                                ],
                               ),
                             ),
                           ),
                         ],
                       ),
                     ),
-                    const SizedBox(height: 30),
+                    const SizedBox(height: 16),
 
-                    // Submit Button
+                    // 4️⃣ NEXT PM & COUNTDOWN
+                    if (_tanggalPM != null)
+                      Container(
+                        padding: const EdgeInsets.all(20),
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [
+                              const Color(0xFF2196F3),
+                              const Color(0xFF1976D2),
+                            ],
+                          ),
+                          borderRadius: BorderRadius.circular(16),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.blue.withOpacity(0.3),
+                              spreadRadius: 2,
+                              blurRadius: 8,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
+                        ),
+                        child: Column(
+                          children: [
+                            // Next PM Date
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                const Text(
+                                  'Next PM',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    color: Colors.white70,
+                                  ),
+                                ),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                    vertical: 6,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withOpacity(0.2),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Text(
+                                    dateFormat.format(_nextPM),
+                                    style: const TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 16),
+                            // Countdown
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                const Text(
+                                  'Countdown',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    color: Colors.white70,
+                                  ),
+                                ),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 16,
+                                    vertical: 8,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: _sisaHari <= 3
+                                        ? Colors.white
+                                        : Colors.white,
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(
+                                      color: _sisaHari <= 3
+                                          ? Colors.orange
+                                          : Colors.green,
+                                      width: 2,
+                                    ),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(
+                                        _sisaHari <= 3
+                                            ? Icons.warning
+                                            : Icons.timer,
+                                        color: _sisaHari <= 3
+                                            ? Colors.orange
+                                            : Colors.green,
+                                        size: 20,
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Text(
+                                        '${_sisaHari} Hari',
+                                        style: TextStyle(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.bold,
+                                          color: _sisaHari <= 3
+                                              ? Colors.orange
+                                              : Colors.green,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                    if (_tanggalPM != null) const SizedBox(height: 16),
+
+                    // 5️⃣ INPUT PIC
+                    Container(
+                      padding: const EdgeInsets.all(20),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(16),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.grey.withOpacity(0.1),
+                            spreadRadius: 2,
+                            blurRadius: 8,
+                          ),
+                        ],
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'PIC (Person in Charge)',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF1a2332),
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          TextFormField(
+                            controller: _picController,
+                            decoration: InputDecoration(
+                              hintText: 'Masukkan nama PIC',
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 14,
+                              ),
+                              prefixIcon: const Icon(Icons.person),
+                            ),
+                            validator: (value) {
+                              if (value == null || value.trim().isEmpty) {
+                                return 'PIC wajib diisi';
+                              }
+                              return null;
+                            },
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+
+                    // 6️⃣ TOMBOL SUBMIT (LEBAR PENUH)
                     ElevatedButton(
                       onPressed: _isLoading ? null : _submitInspection,
                       style: ElevatedButton.styleFrom(
@@ -552,9 +536,9 @@ class _InputInspectionScreenState extends State<InputInspectionScreen> {
                                 strokeWidth: 2,
                               ),
                             )
-                          : Text(
-                              _isPMMode ? 'SIMPAN PM' : 'UPDATE HM',
-                              style: const TextStyle(
+                          : const Text(
+                              'SIMPAN INSPEKSI',
+                              style: TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.bold,
                                 color: Colors.white,
@@ -563,7 +547,7 @@ class _InputInspectionScreenState extends State<InputInspectionScreen> {
                     ),
                     const SizedBox(height: 10),
 
-                    // Cancel Button
+                    // TOMBOL BATAL
                     TextButton(
                       onPressed: () => Navigator.pop(context),
                       child: Text(
@@ -580,8 +564,7 @@ class _InputInspectionScreenState extends State<InputInspectionScreen> {
 
   @override
   void dispose() {
-    _hmController.dispose();
-    _keteranganController.dispose();
+    _picController.dispose();
     super.dispose();
   }
 }

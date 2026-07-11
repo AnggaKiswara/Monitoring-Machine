@@ -1,5 +1,5 @@
 const crudFactory = require("../utils/crudFactory");
-const db = require("../config/db"); // ← TAMBAHKAN INI
+const db = require("../config/db");
 
 // Simpan hasil crudFactory ke variable
 const crud = crudFactory("machine", "id_mesin");
@@ -47,7 +47,7 @@ module.exports.updateHM = async (req, res) => {
   try {
     const { id } = req.params;
     const { hm_current } = req.body;
-    const teknisi_id = req.user?.id_user;
+    const id_user = req.user?.id_user;
 
     if (!hm_current || hm_current < 0) {
       return res.status(400).json({
@@ -67,10 +67,20 @@ module.exports.updateHM = async (req, res) => {
     // Update HM
     await db.query("UPDATE machine SET hm_current = ?, updated_at = NOW() WHERE id_mesin = ?", [hm_current, id]);
 
-    // Insert to service history
+    // Insert to service history (sesuai struktur tabel yang ada)
     await db.query(
-      "INSERT INTO service_history (id_mesin, service_type, hm_value, tanggal_service, teknisi_id, keterangan) VALUES (?, ?, ?, NOW(), ?, ?)",
-      [id, "HM", hm_current, teknisi_id, `HM updated to ${hm_current}`],
+      `INSERT INTO service_history 
+       (id_user, id_station, id_mesin, service_type, description, health_mesin_before, health_mesin_after, service_date, next_service_date) 
+       VALUES (?, ?, ?, 'inspection', ?, ?, ?, NOW(), ?)`,
+      [
+        id_user,
+        machine.id_station,
+        id,
+        `HM updated to ${hm_current}`,
+        machine.health_mesin,
+        machine.health_mesin,
+        new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // Next service 7 hari
+      ],
     );
 
     // Check if PM is needed
@@ -96,7 +106,7 @@ module.exports.recordPM = async (req, res) => {
   try {
     const { id } = req.params;
     const { tanggal_service, keterangan } = req.body;
-    const teknisi_id = req.user?.id_user;
+    const id_user = req.user?.id_user;
 
     // Get current machine data
     const [machines] = await db.query("SELECT * FROM machine WHERE id_mesin = ?", [id]);
@@ -112,10 +122,24 @@ module.exports.recordPM = async (req, res) => {
       id,
     ]);
 
-    // Insert to service history
+    // Hitung next service date (7 hari setelah tanggal PM)
+    const nextServiceDate = new Date(new Date(tanggal_service).getTime() + 7 * 24 * 60 * 60 * 1000);
+
+    // Insert to service history (sesuai struktur tabel yang ada)
     await db.query(
-      "INSERT INTO service_history (id_mesin, service_type, hm_value, tanggal_service, teknisi_id, keterangan) VALUES (?, ?, ?, ?, ?, ?)",
-      [id, "PM", machine.hm_current, tanggal_service || new Date(), teknisi_id, keterangan || "Preventive Maintenance"],
+      `INSERT INTO service_history 
+       (id_user, id_station, id_mesin, service_type, description, health_mesin_before, health_mesin_after, service_date, next_service_date) 
+       VALUES (?, ?, ?, 'preventive', ?, ?, ?, ?, ?)`,
+      [
+        id_user,
+        machine.id_station,
+        id,
+        keterangan || "Preventive Maintenance",
+        machine.health_mesin,
+        machine.health_mesin,
+        tanggal_service || new Date(),
+        nextServiceDate,
+      ],
     );
 
     res.json({
@@ -123,6 +147,7 @@ module.exports.recordPM = async (req, res) => {
       message: "PM berhasil dicatat",
       data: {
         last_pm_date: tanggal_service || new Date(),
+        next_pm_date: nextServiceDate,
         next_pm_hm: machine.hm_current + machine.pm_interval,
       },
     });
@@ -141,14 +166,16 @@ module.exports.getServiceHistory = async (req, res) => {
       SELECT 
         sh.id_service,
         sh.service_type,
-        sh.hm_value,
-        sh.tanggal_service,
-        sh.keterangan,
+        sh.description,
+        sh.health_mesin_before,
+        sh.health_mesin_after,
+        sh.service_date,
+        sh.next_service_date,
         u.nama_lengkap as teknisi_name
       FROM service_history sh
-      LEFT JOIN user_account u ON sh.teknisi_id = u.id_user
+      LEFT JOIN user_account u ON sh.id_user = u.id_user
       WHERE sh.id_mesin = ?
-      ORDER BY sh.tanggal_service DESC
+      ORDER BY sh.service_date DESC
       LIMIT ? OFFSET ?
     `;
 

@@ -1,20 +1,20 @@
 import 'package:flutter/material.dart';
 import '../services/api_services.dart';
 import 'lori_detail_screen.dart';
-import 'input_inspection_screen.dart'; // ✅ TAMBAHKAN IMPORT
+import 'input_inspection_screen.dart';
 
 class MachineDetailScreen extends StatefulWidget {
   final String machineName;
   final int machineId;
-  final String kodeMesin; // ✅ TAMBAHKAN
-  final double currentHM; // ✅ TAMBAHKAN
+  final String kodeMesin;
+  final double currentHM;
 
   const MachineDetailScreen({
     super.key,
     required this.machineName,
     required this.machineId,
-    this.kodeMesin = '', // ✅ Default empty
-    this.currentHM = 0, // ✅ Default 0
+    this.kodeMesin = '',
+    this.currentHM = 0,
   });
 
   @override
@@ -28,28 +28,52 @@ class _MachineDetailScreenState extends State<MachineDetailScreen> {
   String _kodeMesin = '';
   double _currentHM = 0;
 
+  // ✅ HELPER FUNCTION - Konversi aman ke double
+  double _toDouble(dynamic value) {
+    if (value == null) return 0;
+    if (value is double) return value;
+    if (value is int) return value.toDouble();
+    if (value is String) return double.tryParse(value) ?? 0;
+    return 0;
+  }
+
+  // ✅ HELPER FUNCTION - Konversi aman ke int
+  int _toInt(dynamic value) {
+    if (value == null) return 0;
+    if (value is int) return value;
+    if (value is double) return value.toInt();
+    if (value is String) return int.tryParse(value) ?? 0;
+    return 0;
+  }
+
   @override
   void initState() {
     super.initState();
     _kodeMesin = widget.kodeMesin;
     _currentHM = widget.currentHM;
     _loadKomponen();
-    _loadMachineDetail(); // ✅ Load detail machine
+    _loadMachineDetail();
   }
 
   Future<void> _loadMachineDetail() async {
     try {
-      // Ambil detail machine untuk dapat kode_mesin dan hm_current
       final machines = await ApiServices.getMachines(stationId: null);
-      final machine = machines.firstWhere(
-        (m) => m['id_mesin'] == widget.machineId,
-        orElse: () => null,
-      );
+
+      if (machines.isEmpty) return;
+
+      // ✅ Cari machine berdasarkan id
+      dynamic machine;
+      for (var m in machines) {
+        if (_toInt(m['id_mesin']) == widget.machineId) {
+          machine = m;
+          break;
+        }
+      }
 
       if (machine != null) {
         setState(() {
-          _kodeMesin = machine['kode_mesin'] ?? '';
-          _currentHM = (machine['hm_current'] ?? 0).toDouble();
+          _kodeMesin = machine['kode_mesin']?.toString() ?? '';
+          _currentHM = _toDouble(machine['hm_current']);
         });
       }
     } catch (e) {
@@ -127,11 +151,8 @@ class _MachineDetailScreenState extends State<MachineDetailScreen> {
                   margin: const EdgeInsets.all(20),
                   padding: const EdgeInsets.all(20),
                   decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [
-                        const Color(0xFF2196F3),
-                        const Color(0xFF1976D2),
-                      ],
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFF2196F3), Color(0xFF1976D2)],
                     ),
                     borderRadius: BorderRadius.circular(16),
                     boxShadow: [
@@ -290,7 +311,7 @@ class _MachineDetailScreenState extends State<MachineDetailScreen> {
                             final komponen = _komponenList[index];
                             return _buildKomponenCard(
                               komponen['nama_komponen'] ?? 'Komponen Unknown',
-                              komponen['id_komponen'] ?? 0,
+                              _toInt(komponen['id_komponen']),
                               komponen['jenis_komponen'] ?? '',
                             );
                           },
@@ -298,7 +319,6 @@ class _MachineDetailScreenState extends State<MachineDetailScreen> {
                 ),
               ],
             ),
-      // ✅ FLOATING ACTION BUTTON - INPUT INSPEKSI
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () async {
           final result = await Navigator.push(
@@ -313,7 +333,6 @@ class _MachineDetailScreenState extends State<MachineDetailScreen> {
             ),
           );
 
-          // Refresh data jika ada update
           if (result == true) {
             _loadMachineDetail();
             _loadKomponen();

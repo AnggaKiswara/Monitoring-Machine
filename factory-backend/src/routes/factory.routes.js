@@ -6,15 +6,9 @@ const db = require('../config/db');
 router.get('/', async (req, res) => {
   try {
     const [factories] = await db.query('SELECT * FROM factory ORDER BY id_factory');
-    res.json({
-      success: true,
-      data: factories
-    });
+    res.json({ success: true, data: factories });
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: error.message
-    });
+    res.status(500).json({ success: false, message: error.message });
   }
 });
 
@@ -23,20 +17,11 @@ router.get('/:id', async (req, res) => {
   try {
     const [factories] = await db.query('SELECT * FROM factory WHERE id_factory = ?', [req.params.id]);
     if (factories.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: 'Factory not found'
-      });
+      return res.status(404).json({ success: false, message: 'Factory not found' });
     }
-    res.json({
-      success: true,
-      data: factories[0]
-    });
+    res.json({ success: true, data: factories[0] });
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: error.message
-    });
+    res.status(500).json({ success: false, message: error.message });
   }
 });
 
@@ -58,10 +43,7 @@ router.post('/', async (req, res) => {
       }
     });
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: error.message
-    });
+    res.status(500).json({ success: false, message: error.message });
   }
 });
 
@@ -71,30 +53,20 @@ router.put('/:id', async (req, res) => {
     const { nama_factory, lokasi_factory, health_factory } = req.body;
     const [checkFactory] = await db.query('SELECT * FROM factory WHERE id_factory = ?', [req.params.id]);
     if (checkFactory.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: 'Factory not found'
-      });
+      return res.status(404).json({ success: false, message: 'Factory not found' });
     }
     const [result] = await db.query(
       'UPDATE factory SET nama_factory = ?, lokasi_factory = ?, health_factory = ? WHERE id_factory = ?',
-      [nama_factory || checkFactory[0].nama_factory, lokasi_factory || checkFactory[0].lokasi_factory, health_factory !== undefined ? health_factory : checkFactory[0].health_factory, req.params.id]
+      [
+        nama_factory || checkFactory[0].nama_factory,
+        lokasi_factory || checkFactory[0].lokasi_factory,
+        health_factory !== undefined ? health_factory : checkFactory[0].health_factory,
+        req.params.id
+      ]
     );
-    res.json({
-      success: true,
-      message: 'Factory updated successfully',
-      data: {
-        id_factory: req.params.id,
-        nama_factory: nama_factory || checkFactory[0].nama_factory,
-        lokasi_factory: lokasi_factory || checkFactory[0].lokasi_factory,
-        health_factory: health_factory !== undefined ? health_factory : checkFactory[0].health_factory
-      }
-    });
+    res.json({ success: true, message: 'Factory updated successfully' });
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: error.message
-    });
+    res.status(500).json({ success: false, message: error.message });
   }
 });
 
@@ -103,21 +75,12 @@ router.delete('/:id', async (req, res) => {
   try {
     const [checkFactory] = await db.query('SELECT * FROM factory WHERE id_factory = ?', [req.params.id]);
     if (checkFactory.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: 'Factory not found'
-      });
+      return res.status(404).json({ success: false, message: 'Factory not found' });
     }
     const [result] = await db.query('DELETE FROM factory WHERE id_factory = ?', [req.params.id]);
-    res.json({
-      success: true,
-      message: 'Factory deleted successfully'
-    });
+    res.json({ success: true, message: 'Factory deleted successfully' });
   } catch (error) {
-    res.status(500).json({
-      success: false,
-      message: error.message
-    });
+    res.status(500).json({ success: false, message: error.message });
   }
 });
 

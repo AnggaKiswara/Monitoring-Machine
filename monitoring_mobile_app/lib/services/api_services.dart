@@ -464,4 +464,111 @@ class ApiServices {
       throw Exception('Gagal memuat data terbaru');
     }
   }
+  // ==================== MACHINE HM & PM ====================
+
+  // Update HM
+  static Future<Map<String, dynamic>> updateHM({
+    required int machineId,
+    required double hmCurrent,
+  }) async {
+    final headers = await _getHeaders();
+
+    print('=== UPDATE HM REQUEST ===');
+    print('URL: $baseUrl/machines/$machineId/hm');
+    print('Body: hm_current=$hmCurrent');
+
+    final response = await http.post(
+      Uri.parse('$baseUrl/machines/$machineId/hm'),
+      headers: headers,
+      body: json.encode({'hm_current': hmCurrent}),
+    );
+
+    print('=== UPDATE HM RESPONSE ===');
+    print('Status Code: ${response.statusCode}');
+    print('Response Body: ${response.body}');
+
+    if (response.statusCode == 200) {
+      dynamic decoded = json.decode(response.body);
+      return _extractData(decoded) as Map<String, dynamic>;
+    } else {
+      dynamic decoded = json.decode(response.body);
+      String message = decoded['message'] ?? 'Gagal update HM';
+      throw Exception(message);
+    }
+  }
+
+  // Record PM
+  static Future<Map<String, dynamic>> recordPM({
+    required int machineId,
+    DateTime? tanggalService,
+    String? keterangan,
+  }) async {
+    final headers = await _getHeaders();
+
+    print('=== RECORD PM REQUEST ===');
+    print('URL: $baseUrl/machines/$machineId/pm');
+
+    final response = await http.post(
+      Uri.parse('$baseUrl/machines/$machineId/pm'),
+      headers: headers,
+      body: json.encode({
+        'tanggal_service': tanggalService?.toIso8601String(),
+        'keterangan': keterangan,
+      }),
+    );
+
+    print('=== RECORD PM RESPONSE ===');
+    print('Status Code: ${response.statusCode}');
+    print('Response Body: ${response.body}');
+
+    if (response.statusCode == 200) {
+      dynamic decoded = json.decode(response.body);
+      return _extractData(decoded) as Map<String, dynamic>;
+    } else {
+      dynamic decoded = json.decode(response.body);
+      String message = decoded['message'] ?? 'Gagal record PM';
+      throw Exception(message);
+    }
+  }
+
+  // Get service history
+  static Future<List<dynamic>> getServiceHistory({
+    required int machineId,
+    int limit = 10,
+    int offset = 0,
+  }) async {
+    final headers = await _getHeaders();
+
+    final response = await http.get(
+      Uri.parse(
+        '$baseUrl/machines/$machineId/history?limit=$limit&offset=$offset',
+      ),
+      headers: headers,
+    );
+
+    if (response.statusCode == 200) {
+      dynamic decoded = json.decode(response.body);
+      dynamic data = _extractData(decoded);
+      return data is List ? data : [];
+    } else {
+      throw Exception('Gagal memuat history');
+    }
+  }
+
+  // Get PM status
+  static Future<Map<String, dynamic>> getPMStatus(int machineId) async {
+    final headers = await _getHeaders();
+
+    final response = await http.get(
+      Uri.parse('$baseUrl/machines/$machineId/pm-status'),
+      headers: headers,
+    );
+
+    if (response.statusCode == 200) {
+      dynamic decoded = json.decode(response.body);
+      return _extractData(decoded) as Map<String, dynamic>;
+    } else {
+      throw Exception('Gagal memuat PM status');
+    }
+  }
 }

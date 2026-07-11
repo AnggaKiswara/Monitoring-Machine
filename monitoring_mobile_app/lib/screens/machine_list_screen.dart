@@ -244,13 +244,21 @@ class _MachineListScreenState extends State<MachineListScreen> {
     int healthInt = health.toInt();
     Color color = _getColor(healthInt);
 
+    // ✅ Cari data lori lengkap
+    final lori = _loriList.firstWhere((l) => l['id_mesin'] == machineId);
+
     return GestureDetector(
       onTap: () {
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (context) =>
-                MachineDetailScreen(machineName: name, machineId: machineId),
+            builder: (context) => MachineDetailScreen(
+              machineName: name,
+              machineId: machineId,
+              kodeMesin: lori['kode_mesin'] ?? '', // ✅ Kirim kode_mesin
+              currentHM: (lori['hm_current'] ?? 0)
+                  .toDouble(), // ✅ Kirim hm_current
+            ),
           ),
         );
       },
@@ -283,12 +291,23 @@ class _MachineListScreenState extends State<MachineListScreen> {
             const Icon(Icons.directions_railway, color: Color(0xFF1a2332)),
             const SizedBox(width: 15),
             Expanded(
-              child: Text(
-                name,
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    name,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  if (lori['kode_mesin'] != null &&
+                      lori['kode_mesin'].toString().isNotEmpty)
+                    Text(
+                      'Kode: ${lori['kode_mesin']}',
+                      style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                    ),
+                ],
               ),
             ),
             Text(

@@ -317,4 +317,113 @@ class ApiServices {
       throw Exception('Failed to load komponen');
     }
   }
+
+  // ==================== SENSOR READINGS ====================
+
+  // Ambil daftar parameter untuk komponen tertentu
+  static Future<List<dynamic>> getParametersByKomponen(int idKomponen) async {
+    final headers = await _getHeaders();
+
+    print('=== GET PARAMETERS REQUEST ===');
+    print('URL: $baseUrl/sensor-readings/parameters/$idKomponen');
+
+    final response = await http.get(
+      Uri.parse('$baseUrl/sensor-readings/parameters/$idKomponen'),
+      headers: headers,
+    );
+
+    print('=== GET PARAMETERS RESPONSE ===');
+    print('Status Code: ${response.statusCode}');
+    print('Response Body: ${response.body}');
+
+    if (response.statusCode == 200) {
+      dynamic decoded = json.decode(response.body);
+      dynamic data = _extractData(decoded);
+      return data is List ? data : [];
+    } else {
+      throw Exception('Gagal memuat parameter');
+    }
+  }
+
+  // Kirim data sensor reading
+  static Future<Map<String, dynamic>> submitSensorReading({
+    required int idKomponen,
+    required int idParameter,
+    required double nilai,
+  }) async {
+    final headers = await _getHeaders();
+
+    print('=== SUBMIT SENSOR READING REQUEST ===');
+    print('URL: $baseUrl/sensor-readings');
+    print(
+      'Body: id_komponen=$idKomponen, id_parameter=$idParameter, nilai=$nilai',
+    );
+
+    final response = await http.post(
+      Uri.parse('$baseUrl/sensor-readings'),
+      headers: headers,
+      body: json.encode({
+        'id_komponen': idKomponen,
+        'id_parameter': idParameter,
+        'nilai': nilai,
+      }),
+    );
+
+    print('=== SUBMIT SENSOR READING RESPONSE ===');
+    print('Status Code: ${response.statusCode}');
+    print('Response Body: ${response.body}');
+
+    if (response.statusCode == 201 || response.statusCode == 200) {
+      dynamic decoded = json.decode(response.body);
+      return _extractData(decoded) as Map<String, dynamic>;
+    } else {
+      dynamic decoded = json.decode(response.body);
+      String message = decoded['message'] ?? 'Gagal menyimpan data';
+      throw Exception(message);
+    }
+  }
+
+  // Ambil history sensor reading
+  static Future<List<dynamic>> getSensorHistory({
+    required int idKomponen,
+    int limit = 10,
+    int offset = 0,
+  }) async {
+    final headers = await _getHeaders();
+
+    final response = await http.get(
+      Uri.parse(
+        '$baseUrl/sensor-readings/history/$idKomponen?limit=$limit&offset=$offset',
+      ),
+      headers: headers,
+    );
+
+    if (response.statusCode == 200) {
+      dynamic decoded = json.decode(response.body);
+      dynamic data = _extractData(decoded);
+      return data is List ? data : [];
+    } else {
+      throw Exception('Gagal memuat history');
+    }
+  }
+
+  // Ambil sensor reading terbaru
+  static Future<Map<String, dynamic>?> getLatestSensorReading(
+    int idKomponen,
+  ) async {
+    final headers = await _getHeaders();
+
+    final response = await http.get(
+      Uri.parse('$baseUrl/sensor-readings/latest/$idKomponen'),
+      headers: headers,
+    );
+
+    if (response.statusCode == 200) {
+      dynamic decoded = json.decode(response.body);
+      dynamic data = _extractData(decoded);
+      return data is Map<String, dynamic> ? data : null;
+    } else {
+      throw Exception('Gagal memuat data terbaru');
+    }
+  }
 }

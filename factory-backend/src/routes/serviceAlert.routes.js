@@ -1,14 +1,14 @@
 const router = require("express").Router();
 const ctrl = require("../controllers/serviceAlert.controller");
-const { authenticate } = require("../middleware/auth");
+const { authenticate, authorize } = require("../middleware/auth");
 
 router.use(authenticate);
 router.get("/", ctrl.getAll);
 router.get("/:id", ctrl.getOne);
-router.post("/", ctrl.create);
-router.put("/:id", ctrl.update);
-router.delete("/:id", ctrl.remove);
-router.patch("/:id/acknowledge", ctrl.acknowledge);
-router.patch("/:id/resolve", ctrl.resolve);
+router.post("/", authorize("admin", "staff"), ctrl.create);
+router.put("/:id", authorize("admin", "staff"), ctrl.update);
+router.delete("/:id", authorize("admin"), ctrl.remove);
+router.patch("/:id/acknowledge", ctrl.acknowledge); // semua role login boleh
+router.patch("/:id/resolve", ctrl.resolve);          // semua role login boleh
 
 module.exports = router;

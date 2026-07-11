@@ -3,11 +3,25 @@ const jwt = require("jsonwebtoken");
 const pool = require("../config/db");
 const asyncHandler = require("../utils/asyncHandler");
 const ApiError = require("../utils/ApiError");
+const ALLOWED_ROLES = ["admin", "staff", "teknisi"];
 
 const register = asyncHandler(async (req, res) => {
   const { username, password, nama_lengkap, role_user } = req.body;
   if (!username || !password || !nama_lengkap) {
     throw new ApiError(400, "username, password, dan nama_lengkap wajib diisi");
+  }
+
+  if (role_user && !ALLOWED_ROLES.includes(role_user)) {
+    throw new ApiError(400, `role_user harus salah satu dari: ${ALLOWED_ROLES.join(", ")}`);
+  }
+
+  let finalRole = "teknisi";
+  if (role_user && role_user !== "teknisi") {
+    const isRequesterAdmin = req.user && req.user.role_user === "admin";
+    if (!isRequesterAdmin) {
+      throw new ApiError(403, "Cuma admin yang boleh bikin akun dengan role staff/admin");
+    }
+    finalRole = role_user;
   }
 
   const [existing] = await pool.query("SELECT id_user FROM user_account WHERE username = ?", [username]);
@@ -16,12 +30,12 @@ const register = asyncHandler(async (req, res) => {
   const password_hash = await bcrypt.hash(password, 12);
   const [result] = await pool.query(
     "INSERT INTO user_account (username, password_hash, nama_lengkap, role_user) VALUES (?, ?, ?, ?)",
-    [username, password_hash, nama_lengkap, role_user || "teknisi"]
+    [username, password_hash, nama_lengkap, finalRole]
   );
 
   res.status(201).json({
     success: true,
-    data: { id_user: result.insertId, username, nama_lengkap, role_user: role_user || "teknisi" },
+    data: { id_user: result.insertId, username, nama_lengkap, role_user: finalRole },
   });
 });
 

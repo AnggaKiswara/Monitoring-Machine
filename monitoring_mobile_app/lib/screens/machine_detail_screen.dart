@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import '../services/api_services.dart';
 import 'lori_detail_screen.dart';
 import 'input_inspection_screen.dart';
@@ -28,7 +29,13 @@ class _MachineDetailScreenState extends State<MachineDetailScreen> {
   String _kodeMesin = '';
   double _currentHM = 0;
 
-  // ✅ HELPER FUNCTION - Konversi aman ke double
+  // ✅ Inspection data
+  DateTime? _lastPMDate;
+  DateTime? _nextPMDate;
+  String? _picName;
+  int _komponenCount = 0;
+
+  // ✅ Helper function
   double _toDouble(dynamic value) {
     if (value == null) return 0;
     if (value is double) return value;
@@ -37,7 +44,6 @@ class _MachineDetailScreenState extends State<MachineDetailScreen> {
     return 0;
   }
 
-  // ✅ HELPER FUNCTION - Konversi aman ke int
   int _toInt(dynamic value) {
     if (value == null) return 0;
     if (value is int) return value;
@@ -53,6 +59,7 @@ class _MachineDetailScreenState extends State<MachineDetailScreen> {
     _currentHM = widget.currentHM;
     _loadKomponen();
     _loadMachineDetail();
+    _loadInspectionData(); // ✅ Load inspection data
   }
 
   Future<void> _loadMachineDetail() async {
@@ -61,7 +68,6 @@ class _MachineDetailScreenState extends State<MachineDetailScreen> {
 
       if (machines.isEmpty) return;
 
-      // ✅ Cari machine berdasarkan id
       dynamic machine;
       for (var m in machines) {
         if (_toInt(m['id_mesin']) == widget.machineId) {
@@ -81,6 +87,32 @@ class _MachineDetailScreenState extends State<MachineDetailScreen> {
     }
   }
 
+  Future<void> _loadInspectionData() async {
+    try {
+      // Get service history
+      final history = await ApiServices.getServiceHistory(
+        machineId: widget.machineId,
+        limit: 1,
+      );
+
+      if (history.isNotEmpty) {
+        final lastInspection = history[0];
+        setState(() {
+          _lastPMDate = lastInspection['service_date'] != null
+              ? DateTime.parse(lastInspection['service_date'])
+              : null;
+          _nextPMDate = lastInspection['next_service_date'] != null
+              ? DateTime.parse(lastInspection['next_service_date'])
+              : null;
+          _picName =
+              lastInspection['description']; // PIC name stored in description
+        });
+      }
+    } catch (e) {
+      print('Error loading inspection data: $e');
+    }
+  }
+
   Future<void> _loadKomponen() async {
     try {
       setState(() {
@@ -88,13 +120,11 @@ class _MachineDetailScreenState extends State<MachineDetailScreen> {
         _error = null;
       });
 
-      print('=== LOADING KOMPONEN FOR LORI ${widget.machineId} ===');
       final data = await ApiServices.getKomponen(mesinId: widget.machineId);
-
-      print('Komponen loaded: ${data.length}');
 
       setState(() {
         _komponenList = data;
+        _komponenCount = data.length;
         _loading = false;
       });
     } catch (e) {
@@ -106,8 +136,22 @@ class _MachineDetailScreenState extends State<MachineDetailScreen> {
     }
   }
 
+  String _formatDate(DateTime? date) {
+    if (date == null) return '-';
+    return DateFormat('dd MMM yyyy').format(date);
+  }
+
+  int _calculateDaysRemaining(DateTime? nextDate) {
+    if (nextDate == null) return 0;
+    final now = DateTime.now();
+    final diff = nextDate.difference(now).inDays;
+    return diff > 0 ? diff : 0;
+  }
+
   @override
   Widget build(BuildContext context) {
+    final dateFormat = DateFormat('dd MMM yyyy');
+
     return Scaffold(
       backgroundColor: Colors.grey[50],
       appBar: AppBar(
@@ -143,142 +187,271 @@ class _MachineDetailScreenState extends State<MachineDetailScreen> {
                 ],
               ),
             )
-          : Column(
-              children: [
-                // ✅ MACHINE INFO CARD
-                Container(
-                  width: double.infinity,
-                  margin: const EdgeInsets.all(20),
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFF2196F3), Color(0xFF1976D2)],
-                    ),
-                    borderRadius: BorderRadius.circular(16),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.blue.withOpacity(0.3),
-                        spreadRadius: 2,
-                        blurRadius: 8,
-                        offset: const Offset(0, 4),
+          : SingleChildScrollView(
+              child: Column(
+                children: [
+                  // ✅ UPDATED CARD WITH INSPECTION DATA & BUTTON
+                  Container(
+                    width: double.infinity,
+                    margin: const EdgeInsets.all(20),
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFF2196F3), Color(0xFF1976D2)],
                       ),
-                    ],
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.2),
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: const Icon(
-                              Icons.directions_railway,
-                              color: Colors.white,
-                              size: 28,
-                            ),
-                          ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  _kodeMesin.isNotEmpty
-                                      ? _kodeMesin
-                                      : 'No Code',
-                                  style: const TextStyle(
-                                    fontSize: 12,
-                                    color: Colors.white70,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  widget.machineName,
-                                  style: const TextStyle(
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.white,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 20),
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.15),
-                          borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.blue.withOpacity(0.3),
+                          spreadRadius: 2,
+                          blurRadius: 8,
+                          offset: const Offset(0, 4),
                         ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      ],
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Header: Machine Info
+                        Row(
                           children: [
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Text(
-                                  'Current HM',
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    color: Colors.white70,
-                                  ),
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  '${_currentHM.toStringAsFixed(0)} Jam',
-                                  style: const TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.white,
-                                  ),
-                                ),
-                              ],
-                            ),
                             Container(
-                              width: 1,
-                              height: 40,
-                              color: Colors.white.withOpacity(0.3),
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withOpacity(0.2),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: const Icon(
+                                Icons.directions_railway,
+                                color: Colors.white,
+                                size: 28,
+                              ),
                             ),
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Text(
-                                  'Komponen',
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    color: Colors.white70,
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    _kodeMesin.isNotEmpty
+                                        ? _kodeMesin
+                                        : 'No Code',
+                                    style: const TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.white70,
+                                      fontWeight: FontWeight.w500,
+                                    ),
                                   ),
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  '${_komponenList.length} Unit',
-                                  style: const TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.white,
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    widget.machineName,
+                                    style: const TextStyle(
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.white,
+                                    ),
                                   ),
-                                ),
-                              ],
+                                ],
+                              ),
                             ),
                           ],
                         ),
-                      ),
-                    ],
+                        const SizedBox(height: 20),
+
+                        // ✅ Inspection Info
+                        if (_lastPMDate != null || _picName != null)
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.15),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  'Inspeksi Terakhir',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: Colors.white70,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                Row(
+                                  children: [
+                                    const Icon(
+                                      Icons.event,
+                                      color: Colors.white,
+                                      size: 16,
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: Text(
+                                        'PM: ${_formatDate(_lastPMDate)}',
+                                        style: const TextStyle(
+                                          fontSize: 13,
+                                          color: Colors.white,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                if (_nextPMDate != null) ...[
+                                  const SizedBox(height: 6),
+                                  Row(
+                                    children: [
+                                      const Icon(
+                                        Icons.calendar_today,
+                                        color: Colors.white,
+                                        size: 16,
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Expanded(
+                                        child: Text(
+                                          'Next PM: ${_formatDate(_nextPMDate)} (${_calculateDaysRemaining(_nextPMDate)} hari)',
+                                          style: const TextStyle(
+                                            fontSize: 13,
+                                            color: Colors.white,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                                if (_picName != null &&
+                                    _picName!.isNotEmpty) ...[
+                                  const SizedBox(height: 6),
+                                  Row(
+                                    children: [
+                                      const Icon(
+                                        Icons.person,
+                                        color: Colors.white,
+                                        size: 16,
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Expanded(
+                                        child: Text(
+                                          'PIC: $_picName',
+                                          style: const TextStyle(
+                                            fontSize: 13,
+                                            color: Colors.white,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ),
+                        if (_lastPMDate != null || _picName != null)
+                          const SizedBox(height: 16),
+
+                        // ✅ BUTTON INSIDE CARD
+                        SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton.icon(
+                            onPressed: () async {
+                              final result = await Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => InputInspectionScreen(
+                                    machineId: widget.machineId,
+                                    machineName: widget.machineName,
+                                    kodeMesin: _kodeMesin,
+                                    currentHM: _currentHM,
+                                  ),
+                                ),
+                              );
+
+                              if (result == true) {
+                                _loadMachineDetail();
+                                _loadKomponen();
+                                _loadInspectionData();
+                              }
+                            },
+                            icon: Icon(
+                              _lastPMDate != null
+                                  ? Icons.edit_note
+                                  : Icons.add_circle,
+                              color: _lastPMDate != null
+                                  ? Colors.white
+                                  : const Color(0xFF1976D2),
+                              size: 20,
+                            ),
+                            label: Text(
+                              _lastPMDate != null
+                                  ? 'Update Keterangan'
+                                  : 'Input Keterangan',
+                              style: TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.bold,
+                                color: _lastPMDate != null
+                                    ? Colors.white
+                                    : const Color(0xFF1976D2),
+                              ),
+                            ),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: _lastPMDate != null
+                                  ? const Color(
+                                      0xFFFF9800,
+                                    ) // Orange jika sudah ada data
+                                  : Colors.white, // Putih jika belum ada data
+                              foregroundColor: _lastPMDate != null
+                                  ? Colors.white
+                                  : const Color(0xFF1976D2),
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              elevation: 2,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-                // ✅ KOMPONEN LIST
-                Expanded(
-                  child: _komponenList.isEmpty
+
+                  // Komponen List
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: Row(
+                      children: [
+                        const Text(
+                          'Daftar Komponen',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF1a2332),
+                          ),
+                        ),
+                        const Spacer(),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.blue[100],
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            '$_komponenCount item',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.blue[900],
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  _komponenList.isEmpty
                       ? Center(
                           child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
                             children: [
                               const Icon(
                                 Icons.settings,
@@ -305,6 +478,8 @@ class _MachineDetailScreenState extends State<MachineDetailScreen> {
                           ),
                         )
                       : ListView.builder(
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
                           padding: const EdgeInsets.symmetric(horizontal: 20),
                           itemCount: _komponenList.length,
                           itemBuilder: (context, index) {
@@ -316,35 +491,10 @@ class _MachineDetailScreenState extends State<MachineDetailScreen> {
                             );
                           },
                         ),
-                ),
-              ],
-            ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () async {
-          final result = await Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => InputInspectionScreen(
-                machineId: widget.machineId,
-                machineName: widget.machineName,
-                kodeMesin: _kodeMesin,
-                currentHM: _currentHM,
+                  const SizedBox(height: 20),
+                ],
               ),
             ),
-          );
-
-          if (result == true) {
-            _loadMachineDetail();
-            _loadKomponen();
-          }
-        },
-        backgroundColor: const Color(0xFF2196F3),
-        icon: const Icon(Icons.add_circle, color: Colors.white),
-        label: const Text(
-          'Input Inspeksi',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-        ),
-      ),
     );
   }
 

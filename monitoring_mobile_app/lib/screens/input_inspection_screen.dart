@@ -29,10 +29,15 @@ class _InputInspectionScreenState extends State<InputInspectionScreen> {
   bool _isLoading = false;
   Map<String, dynamic>? _pmStatus;
 
+  // ✅ Data inspection terakhir
+  List<dynamic> _inspectionHistory = [];
+  Map<String, dynamic>? _lastInspection;
+
   @override
   void initState() {
     super.initState();
     _loadPMStatus();
+    _loadInspectionHistory(); // ✅ Load history saat init
   }
 
   Future<void> _loadPMStatus() async {
@@ -43,6 +48,47 @@ class _InputInspectionScreenState extends State<InputInspectionScreen> {
       });
     } catch (e) {
       print('Error loading PM status: $e');
+    }
+  }
+
+  Future<void> _loadInspectionHistory() async {
+    try {
+      // Load history inspeksi terakhir
+      final history = await ApiServices.getServiceHistory(
+        machineId: widget.machineId,
+        limit: 5, // Ambil 5 history terakhir
+      );
+
+      setState(() {
+        _inspectionHistory = history;
+        if (history.isNotEmpty) {
+          _lastInspection = history[0];
+
+          // ✅ Isi form dengan data terakhir
+          if (_lastInspection != null) {
+            // Parse tanggal service
+            if (_lastInspection!['service_date'] != null) {
+              _tanggalInspeksi = DateTime.parse(
+                _lastInspection!['service_date'],
+              );
+            }
+
+            // Parse next service date (untuk tanggal PM)
+            if (_lastInspection!['next_service_date'] != null) {
+              _tanggalPM = DateTime.parse(
+                _lastInspection!['next_service_date'],
+              );
+            }
+
+            // Parse PIC (dari description)
+            if (_lastInspection!['description'] != null) {
+              _picController.text = _lastInspection!['description'];
+            }
+          }
+        }
+      });
+    } catch (e) {
+      print('Error loading inspection history: $e');
     }
   }
 
@@ -62,17 +108,15 @@ class _InputInspectionScreenState extends State<InputInspectionScreen> {
     final picked = await showDatePicker(
       context: context,
       initialDate: _tanggalPM ?? _tanggalInspeksi,
-      firstDate: _tanggalInspeksi, // ✅ Minimal = tanggal inspeksi
-      lastDate: _tanggalInspeksi.add(
-        const Duration(days: 7),
-      ), // ✅ Maksimal 7 hari setelah inspeksi
+      firstDate: _tanggalInspeksi,
+      lastDate: _tanggalInspeksi.add(const Duration(days: 7)),
     );
     if (picked != null) {
       setState(() => _tanggalPM = picked);
     }
   }
 
-  // ✅ Hitung Next PM (7 hari setelah inspeksi)
+  // ✅ Hitung Next PM (7 hari setelah tanggal terakhir PM)
   DateTime get _nextPM {
     if (_tanggalPM == null)
       return _tanggalInspeksi.add(const Duration(days: 7));
@@ -102,7 +146,7 @@ class _InputInspectionScreenState extends State<InputInspectionScreen> {
     setState(() => _isLoading = true);
 
     try {
-      // Record PM
+      // Record PM (tetap INSERT untuk menyimpan history)
       await ApiServices.recordPM(
         machineId: widget.machineId,
         tanggalService: _tanggalPM,
@@ -111,8 +155,12 @@ class _InputInspectionScreenState extends State<InputInspectionScreen> {
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Inspeksi dan PM berhasil dicatat'),
+          SnackBar(
+            content: Text(
+              _lastInspection == null
+                  ? 'Inspeksi berhasil dicatat'
+                  : 'Inspeksi berhasil diupdate',
+            ),
             backgroundColor: Colors.green,
           ),
         );
@@ -143,9 +191,14 @@ class _InputInspectionScreenState extends State<InputInspectionScreen> {
           icon: const Icon(Icons.arrow_back_ios, color: Colors.white),
           onPressed: () => Navigator.pop(context),
         ),
-        title: const Text(
-          'Input Data Inspeksi',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+        title: Text(
+          _lastInspection != null
+              ? 'Update Data Inspeksi'
+              : 'Input Data Inspeksi',
+          style: const TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+          ),
         ),
       ),
       body: _pmStatus == null
@@ -422,8 +475,8 @@ class _InputInspectionScreenState extends State<InputInspectionScreen> {
                                   ),
                                   decoration: BoxDecoration(
                                     color: _sisaHari <= 3
-                                        ? Colors.white
-                                        : Colors.white,
+                                        ? Colors.orange.withOpacity(0.3)
+                                        : Colors.green.withOpacity(0.3),
                                     borderRadius: BorderRadius.circular(12),
                                     border: Border.all(
                                       color: _sisaHari <= 3
@@ -536,9 +589,11 @@ class _InputInspectionScreenState extends State<InputInspectionScreen> {
                                 strokeWidth: 2,
                               ),
                             )
-                          : const Text(
-                              'SIMPAN INSPEKSI',
-                              style: TextStyle(
+                          : Text(
+                              _lastInspection != null
+                                  ? 'UPDATE INSPEKSI'
+                                  : 'SIMPAN INSPEKSI',
+                              style: const TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.bold,
                                 color: Colors.white,
@@ -555,6 +610,69 @@ class _InputInspectionScreenState extends State<InputInspectionScreen> {
                         style: TextStyle(color: Colors.grey[600], fontSize: 14),
                       ),
                     ),
+
+                    // ✅ HISTORY INSPECTION (jika ada)
+                    if (_inspectionHistory.length > 1) ...[
+                      const SizedBox(height: 20),
+                      const Text(
+                        'Riwayat Inspeksi',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF1a2332),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      ..._inspectionHistory.skip(1).take(4).map((inspection) {
+                        final date = inspection['service_date'] != null
+                            ? DateTime.parse(inspection['service_date'])
+                            : null;
+                        return Container(
+                          margin: const EdgeInsets.only(bottom: 8),
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.grey[100],
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(
+                                Icons.history,
+                                color: Colors.grey[600],
+                                size: 20,
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      date != null
+                                          ? dateFormat.format(date)
+                                          : '-',
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                    if (inspection['description'] != null &&
+                                        inspection['description']
+                                            .toString()
+                                            .isNotEmpty)
+                                      Text(
+                                        'PIC: ${inspection['description']}',
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          color: Colors.grey[600],
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      }).toList(),
+                    ],
                   ],
                 ),
               ),

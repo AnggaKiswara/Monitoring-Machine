@@ -190,6 +190,114 @@ module.exports.getServiceHistory = async (req, res) => {
   }
 };
 
+// GET - Get inspection detail (service_history + komponen readings)
+module.exports.getInspectionDetail = async (req, res) => {
+  try {
+    const { id, serviceId } = req.params;
+
+    // 1. Get service_history record
+    const [services] = await db.query(
+      `SELECT 
+        sh.id_service,
+        sh.service_type,
+        sh.description,
+        sh.health_mesin_before,
+        sh.health_mesin_after,
+        sh.service_date,
+        sh.next_service_date,
+        sh.created_at,
+        u.nama_lengkap as teknisi_name
+      FROM service_history sh
+      LEFT JOIN user_account u ON sh.id_user = u.id_user
+      WHERE sh.id_service = ? AND sh.id_mesin = ?`,
+      [serviceId, id]
+    );
+
+    if (services.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "Data inspeksi tidak ditemukan",
+      });
+    }
+
+    const service = services[0];
+
+    // 2. Get all komponen for this machine with their sensor readings at service_date
+    const [komponenReadings] = await db.query(
+      `SELECT 
+        k.id_komponen,
+        k.nama_komponen,
+        k.jenis_komponen,
+        sr.nilai,
+        sr.recorded_at,
+        p.nama_parameter
+      FROM komponen k
+      LEFT JOIN sensor_reading sr ON k.id_komponen = sr.id_komponen
+        AND DATE(sr.recorded_at) = DATE(?)
+      LEFT JOIN parameter p ON sr.id_parameter = p.id_parameter
+      WHERE k.id_mesin = ?
+      ORDER BY k.id_komponen, p.nama_parameter`,
+      [service.service_date, id]
+    );
+
+    // 3. Group by komponen - ambil nilai rata-rata per komponen
+    const komponenMap = {};
+    for (const row of komponenReadings) {
+      const key = row.id_komponen;
+      if (!komponenMap[key]) {
+        komponenMap[key] = {
+          id_komponen: row.id_komponen,
+          nama_komponen: row.nama_komponen,
+          jenis_komponen: row.jenis_komponen,
+          nilai: row.nilai,
+          kondisi: null,
+          parameters: [],
+        };
+      }
+      if (row.nama_parameter && row.nilai !== null) {
+        komponenMap[key].parameters.push({
+          nama_parameter: row.nama_parameter,
+          nilai: row.nilai,
+        });
+      }
+    }
+
+    // 4. Determine kondisi from nilai
+    const komponenList = Object.values(komponenMap).map((k) => {
+      // Ambil nilai dari parameter pertama (semua parameter memiliki nilai yang sama dari inspeksi)
+      const nilai = k.parameters.length > 0 ? k.parameters[0].nilai : null;
+      let kondisi = "-";
+
+      if (nilai !== null) {
+        if (nilai >= 95) kondisi = "Sangat Baik";
+        else if (nilai >= 80) kondisi = "Baik";
+        else if (nilai >= 60) kondisi = "Perlu Maintenance";
+        else if (nilai >= 30) kondisi = "Rusak";
+        else kondisi = "Tidak Ada";
+      }
+
+      return {
+        id_komponen: k.id_komponen,
+        nama_komponen: k.nama_komponen,
+        jenis_komponen: k.jenis_komponen,
+        nilai: nilai,
+        kondisi: kondisi,
+      };
+    });
+
+    res.json({
+      success: true,
+      data: {
+        ...service,
+        komponen: komponenList,
+      },
+    });
+  } catch (error) {
+    console.error("Error fetching inspection detail:", error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
 // GET - Get PM status
 module.exports.getPMStatus = async (req, res) => {
   try {

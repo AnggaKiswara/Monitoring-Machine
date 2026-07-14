@@ -506,6 +506,35 @@ class ApiServices {
     }
   }
 
+  // Get detail inspeksi (service_history + komponen readings)
+  static Future<Map<String, dynamic>> getInspectionDetail({
+    required int machineId,
+    required int serviceId,
+  }) async {
+    final headers = await _getHeaders();
+
+    print('=== GET INSPECTION DETAIL REQUEST ===');
+    print('URL: $baseUrl/machines/$machineId/inspection/$serviceId');
+
+    final response = await http.get(
+      Uri.parse('$baseUrl/machines/$machineId/inspection/$serviceId'),
+      headers: headers,
+    );
+
+    print('=== GET INSPECTION DETAIL RESPONSE ===');
+    print('Status Code: ${response.statusCode}');
+    print('Response Body: ${response.body}');
+
+    if (response.statusCode == 200) {
+      dynamic decoded = json.decode(response.body);
+      return _extractData(decoded) as Map<String, dynamic>;
+    } else {
+      dynamic decoded = json.decode(response.body);
+      String message = decoded['message'] ?? 'Gagal memuat detail inspeksi';
+      throw Exception(message);
+    }
+  }
+
   // ==================== MACHINE HM & PM ====================
 
   // Update HM

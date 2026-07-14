@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:convert';
 import '../services/api_services.dart';
 import 'lori_detail_screen.dart';
 import 'input_inspection_screen.dart';
@@ -22,50 +24,72 @@ class MachineDetailScreen extends StatefulWidget {
   State<MachineDetailScreen> createState() => _MachineDetailScreenState();
 }
 
-class _MachineDetailScreenState extends State<MachineDetailScreen> {
+class _MachineDetailScreenState extends State<MachineDetailScreen>
+    with SingleTickerProviderStateMixin {
+  late TabController _tabController;
+
   List<dynamic> _komponenList = [];
   bool _loading = true;
   String? _error;
   String _kodeMesin = '';
   double _currentHM = 0;
 
-  // ✅ Inspection data
+  // Inspection data
   DateTime? _lastPMDate;
   DateTime? _nextPMDate;
   String? _picName;
   int _komponenCount = 0;
 
-  // ✅ Helper function
-  double _toDouble(dynamic value) {
-    if (value == null) return 0;
-    if (value is double) return value;
-    if (value is int) return value.toDouble();
-    if (value is String) return double.tryParse(value) ?? 0;
-    return 0;
-  }
+  // Component inspection state
+  Map<int, String> _komponenConditions = {};
+  bool _isSaving = false;
 
-  int _toInt(dynamic value) {
-    if (value == null) return 0;
-    if (value is int) return value;
-    if (value is double) return value.toInt();
-    if (value is String) return int.tryParse(value) ?? 0;
-    return 0;
-  }
+  // History data
+  List<Map<String, dynamic>> _inspectionHistory = [];
+  bool _loadingHistory = false;
+
+  // ✅ TAMBAHAN: Controller dan State untuk Form Inspeksi
+  final _inspectionPicController = TextEditingController();
+  final _inspectionKeteranganController = TextEditingController();
+  DateTime _inspectionDate = DateTime.now();
+
+  // Nilai persentase
+  final Map<String, double> _nilaiPersentase = {
+    'Sangat Baik': 95.0,
+    'Baik': 80.0,
+    'Perlu Maintenance': 60.0,
+    'Rusak': 30.0,
+    'Tidak Ada': 0.0,
+  };
+
+  final List<String> _kondisiOptions = [
+    'Sangat Baik',
+    'Baik',
+    'Perlu Maintenance',
+    'Rusak',
+    'Tidak Ada',
+  ];
 
   @override
   void initState() {
     super.initState();
-    _kodeMesin = widget.kodeMesin;
-    _currentHM = widget.currentHM;
-    _loadKomponen();
-    _loadMachineDetail();
-    _loadInspectionData(); // ✅ Load inspection data
+    _tabController = TabController(length: 2, vsync: this);
+    _loadData();
+    _loadDraft(); // Load auto-save draft
+  }
+
+  Future<void> _loadData() async {
+    await Future.wait([
+      _loadMachineDetail(),
+      _loadKomponen(),
+      _loadInspectionData(),
+      _loadHistory(),
+    ]);
   }
 
   Future<void> _loadMachineDetail() async {
     try {
       final machines = await ApiServices.getMachines(stationId: null);
-
       if (machines.isEmpty) return;
 
       dynamic machine;
@@ -89,7 +113,6 @@ class _MachineDetailScreenState extends State<MachineDetailScreen> {
 
   Future<void> _loadInspectionData() async {
     try {
-      // Get service history
       final history = await ApiServices.getServiceHistory(
         machineId: widget.machineId,
         limit: 1,
@@ -104,8 +127,7 @@ class _MachineDetailScreenState extends State<MachineDetailScreen> {
           _nextPMDate = lastInspection['next_service_date'] != null
               ? DateTime.parse(lastInspection['next_service_date'])
               : null;
-          _picName =
-              lastInspection['description']; // PIC name stored in description
+          _picName = lastInspection['description'];
         });
       }
     } catch (e) {
@@ -136,6 +158,244 @@ class _MachineDetailScreenState extends State<MachineDetailScreen> {
     }
   }
 
+  Future<void> _loadHistory() async {
+    try {
+      setState(() => _loadingHistory = true);
+
+      final history = await ApiServices.getServiceHistory(
+        machineId: widget.machineId,
+        limit: 50,
+      );
+
+      setState(() {
+        _inspectionHistory = history.map((item) {
+          return {
+            'id': item['id_service'],
+            'tanggal': item['service_date'],
+            'overall_health': _toDouble(item['health_mesin_after']),
+            'description': item['description'] ?? '',
+            'komponen_count': _komponenCount,
+          };
+        }).toList();
+        _loadingHistory = false;
+      });
+    } catch (e) {
+      print('Error loading history: $e');
+      setState(() => _loadingHistory = false);
+    }
+  }
+
+  // Auto-save draft ke local storage
+  Future<void> _saveDraft() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final draftKey = 'inspection_draft_${widget.machineId}';
+
+      final draftData = {
+        'komponen_conditions': _komponenConditions.map(
+          (key, value) => MapEntry(key.toString(), value),
+        ),
+        'pic': _inspectionPicController.text,
+        'keterangan': _inspectionKeteranganController.text,
+        'tanggal': _inspectionDate.toIso8601String(),
+        'timestamp': DateTime.now().toIso8601String(),
+      };
+
+      await prefs.setString(draftKey, json.encode(draftData));
+    } catch (e) {
+      print('Error saving draft: $e');
+    }
+  }
+
+  // Load draft dari local storage
+  Future<void> _loadDraft() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final draftKey = 'inspection_draft_${widget.machineId}';
+      final draftString = prefs.getString(draftKey);
+
+      if (draftString != null) {
+        final draftData = json.decode(draftString);
+        final conditions = Map<String, dynamic>.from(
+          draftData['komponen_conditions'],
+        );
+
+        setState(() {
+          _komponenConditions = conditions.map(
+            (key, value) => MapEntry(int.parse(key), value.toString()),
+          );
+
+          // Load text fields jika ada
+          if (draftData['pic'] != null) {
+            _inspectionPicController.text = draftData['pic'];
+          }
+          if (draftData['keterangan'] != null) {
+            _inspectionKeteranganController.text = draftData['keterangan'];
+          }
+          if (draftData['tanggal'] != null) {
+            _inspectionDate = DateTime.parse(draftData['tanggal']);
+          }
+        });
+
+        // Show notification jika ada draft
+        if (_komponenConditions.isNotEmpty) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(
+                  'Draft ditemukan dari ${DateFormat('dd MMM yyyy HH:mm').format(DateTime.parse(draftData['timestamp']))}',
+                ),
+                action: SnackBarAction(
+                  label: 'Hapus',
+                  onPressed: () => _clearDraft(),
+                ),
+                duration: const Duration(seconds: 5),
+              ),
+            );
+          });
+        }
+      }
+    } catch (e) {
+      print('Error loading draft: $e');
+    }
+  }
+
+  Future<void> _clearDraft() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final draftKey = 'inspection_draft_${widget.machineId}';
+      await prefs.remove(draftKey);
+
+      setState(() {
+        _komponenConditions.clear();
+        _inspectionPicController.clear();
+        _inspectionKeteranganController.clear();
+        _inspectionDate = DateTime.now();
+      });
+    } catch (e) {
+      print('Error clearing draft: $e');
+    }
+  }
+
+  // Hitung overall health
+  double? get _overallHealth {
+    if (_komponenConditions.isEmpty) return null;
+
+    double total = 0;
+    int count = 0;
+
+    _komponenConditions.forEach((key, value) {
+      total += _nilaiPersentase[value] ?? 0;
+      count++;
+    });
+
+    return count > 0 ? total / count : null;
+  }
+
+  Color _getHealthColor(double health) {
+    if (health >= 90) return Colors.green;
+    if (health >= 70) return Colors.lightGreen;
+    if (health >= 60) return Colors.orange;
+    return Colors.red;
+  }
+
+  // Submit inspeksi
+  Future<void> _submitInspection() async {
+    // ✅ Validasi PIC
+    if (_inspectionPicController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('PIC wajib diisi'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    if (_komponenConditions.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Pilih kondisi untuk minimal 1 komponen'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    setState(() => _isSaving = true);
+
+    try {
+      // Simpan data untuk setiap komponen
+      for (var komponen in _komponenList) {
+        final komponenId = komponen['id_komponen'];
+        final kondisi = _komponenConditions[komponenId];
+
+        if (kondisi != null) {
+          final parameters = await ApiServices.getParametersByKomponen(
+            komponenId,
+          );
+
+          for (var param in parameters) {
+            await ApiServices.submitSensorReading(
+              idKomponen: komponenId,
+              idParameter: param['id_parameter'],
+              nilai: _nilaiPersentase[kondisi] ?? 0,
+            );
+          }
+        }
+      }
+
+      // Clear draft setelah berhasil simpan
+      await _clearDraft();
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Inspeksi berhasil disimpan'),
+            backgroundColor: Colors.green,
+          ),
+        );
+
+        // ✅ Reset form setelah sukses
+        setState(() {
+          _komponenConditions.clear();
+          _inspectionPicController.clear();
+          _inspectionKeteranganController.clear();
+          _inspectionDate = DateTime.now();
+        });
+
+        // Refresh data
+        await _loadHistory();
+        await _loadInspectionData();
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Gagal: $e'), backgroundColor: Colors.red),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isSaving = false);
+    }
+  }
+
+  // Helper functions
+  double _toDouble(dynamic value) {
+    if (value == null) return 0;
+    if (value is double) return value;
+    if (value is int) return value.toDouble();
+    if (value is String) return double.tryParse(value) ?? 0;
+    return 0;
+  }
+
+  int _toInt(dynamic value) {
+    if (value == null) return 0;
+    if (value is int) return value;
+    if (value is double) return value.toInt();
+    if (value is String) return int.tryParse(value) ?? 0;
+    return 0;
+  }
+
   String _formatDate(DateTime? date) {
     if (date == null) return '-';
     return DateFormat('dd MMM yyyy').format(date);
@@ -150,8 +410,6 @@ class _MachineDetailScreenState extends State<MachineDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final dateFormat = DateFormat('dd MMM yyyy');
-
     return Scaffold(
       backgroundColor: Colors.grey[50],
       appBar: AppBar(
@@ -168,417 +426,549 @@ class _MachineDetailScreenState extends State<MachineDetailScreen> {
             fontWeight: FontWeight.bold,
           ),
         ),
+        bottom: TabBar(
+          controller: _tabController,
+          indicatorColor: Colors.white,
+          labelColor: Colors.white,
+          unselectedLabelColor: Colors.white70,
+          tabs: const [
+            Tab(text: 'Inspeksi', icon: Icon(Icons.edit)),
+            Tab(text: 'History', icon: Icon(Icons.history)),
+          ],
+        ),
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
-          : _error != null
-          ? Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Icon(Icons.error, size: 60, color: Colors.red),
-                  const SizedBox(height: 20),
-                  Text('Error: $_error'),
-                  const SizedBox(height: 20),
-                  ElevatedButton(
-                    onPressed: _loadKomponen,
-                    child: const Text('Coba Lagi'),
-                  ),
-                ],
-              ),
-            )
-          : SingleChildScrollView(
-              child: Column(
-                children: [
-                  // ✅ UPDATED CARD WITH INSPECTION DATA & BUTTON
-                  Container(
-                    width: double.infinity,
-                    margin: const EdgeInsets.all(20),
-                    padding: const EdgeInsets.all(20),
-                    decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        colors: [Color(0xFF2196F3), Color(0xFF1976D2)],
-                      ),
-                      borderRadius: BorderRadius.circular(16),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.blue.withOpacity(0.3),
-                          spreadRadius: 2,
-                          blurRadius: 8,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // Header: Machine Info
-                        Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(
-                                color: Colors.white.withOpacity(0.2),
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: const Icon(
-                                Icons.directions_railway,
-                                color: Colors.white,
-                                size: 28,
-                              ),
-                            ),
-                            const SizedBox(width: 16),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    _kodeMesin.isNotEmpty
-                                        ? _kodeMesin
-                                        : 'No Code',
-                                    style: const TextStyle(
-                                      fontSize: 12,
-                                      color: Colors.white70,
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    widget.machineName,
-                                    style: const TextStyle(
-                                      fontSize: 18,
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.white,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 20),
-
-                        // ✅ Inspection Info
-                        if (_lastPMDate != null || _picName != null)
-                          Container(
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.15),
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Text(
-                                  'Inspeksi Terakhir',
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    color: Colors.white70,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                                const SizedBox(height: 8),
-                                Row(
-                                  children: [
-                                    const Icon(
-                                      Icons.event,
-                                      color: Colors.white,
-                                      size: 16,
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Expanded(
-                                      child: Text(
-                                        'PM: ${_formatDate(_lastPMDate)}',
-                                        style: const TextStyle(
-                                          fontSize: 13,
-                                          color: Colors.white,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                if (_nextPMDate != null) ...[
-                                  const SizedBox(height: 6),
-                                  Row(
-                                    children: [
-                                      const Icon(
-                                        Icons.calendar_today,
-                                        color: Colors.white,
-                                        size: 16,
-                                      ),
-                                      const SizedBox(width: 8),
-                                      Expanded(
-                                        child: Text(
-                                          'Next PM: ${_formatDate(_nextPMDate)} (${_calculateDaysRemaining(_nextPMDate)} hari)',
-                                          style: const TextStyle(
-                                            fontSize: 13,
-                                            color: Colors.white,
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ],
-                                if (_picName != null &&
-                                    _picName!.isNotEmpty) ...[
-                                  const SizedBox(height: 6),
-                                  Row(
-                                    children: [
-                                      const Icon(
-                                        Icons.person,
-                                        color: Colors.white,
-                                        size: 16,
-                                      ),
-                                      const SizedBox(width: 8),
-                                      Expanded(
-                                        child: Text(
-                                          'PIC: $_picName',
-                                          style: const TextStyle(
-                                            fontSize: 13,
-                                            color: Colors.white,
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ],
-                              ],
-                            ),
-                          ),
-                        if (_lastPMDate != null || _picName != null)
-                          const SizedBox(height: 16),
-
-                        // ✅ BUTTON INSIDE CARD
-                        SizedBox(
-                          width: double.infinity,
-                          child: ElevatedButton.icon(
-                            onPressed: () async {
-                              final result = await Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => InputInspectionScreen(
-                                    machineId: widget.machineId,
-                                    machineName: widget.machineName,
-                                    kodeMesin: _kodeMesin,
-                                    currentHM: _currentHM,
-                                  ),
-                                ),
-                              );
-
-                              if (result == true) {
-                                _loadMachineDetail();
-                                _loadKomponen();
-                                _loadInspectionData();
-                              }
-                            },
-                            icon: Icon(
-                              _lastPMDate != null
-                                  ? Icons.edit_note
-                                  : Icons.add_circle,
-                              color: _lastPMDate != null
-                                  ? Colors.white
-                                  : const Color(0xFF1976D2),
-                              size: 20,
-                            ),
-                            label: Text(
-                              _lastPMDate != null
-                                  ? 'Update Keterangan'
-                                  : 'Input Keterangan',
-                              style: TextStyle(
-                                fontSize: 15,
-                                fontWeight: FontWeight.bold,
-                                color: _lastPMDate != null
-                                    ? Colors.white
-                                    : const Color(0xFF1976D2),
-                              ),
-                            ),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: _lastPMDate != null
-                                  ? const Color(
-                                      0xFFFF9800,
-                                    ) // Orange jika sudah ada data
-                                  : Colors.white, // Putih jika belum ada data
-                              foregroundColor: _lastPMDate != null
-                                  ? Colors.white
-                                  : const Color(0xFF1976D2),
-                              padding: const EdgeInsets.symmetric(vertical: 14),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              elevation: 2,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  // Komponen List
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
-                    child: Row(
-                      children: [
-                        const Text(
-                          'Daftar Komponen',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                            color: Color(0xFF1a2332),
-                          ),
-                        ),
-                        const Spacer(),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 4,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Colors.blue[100],
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Text(
-                            '$_komponenCount item',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: Colors.blue[900],
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  _komponenList.isEmpty
-                      ? Center(
-                          child: Column(
-                            children: [
-                              const Icon(
-                                Icons.settings,
-                                size: 80,
-                                color: Colors.grey,
-                              ),
-                              const SizedBox(height: 20),
-                              Text(
-                                'Belum ada Komponen untuk Lori ini',
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  color: Colors.grey[600],
-                                ),
-                              ),
-                              const SizedBox(height: 10),
-                              Text(
-                                'Tambahkan via Database',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: Colors.grey[500],
-                                ),
-                              ),
-                            ],
-                          ),
-                        )
-                      : ListView.builder(
-                          shrinkWrap: true,
-                          physics: const NeverScrollableScrollPhysics(),
-                          padding: const EdgeInsets.symmetric(horizontal: 20),
-                          itemCount: _komponenList.length,
-                          itemBuilder: (context, index) {
-                            final komponen = _komponenList[index];
-                            return _buildKomponenCard(
-                              komponen['nama_komponen'] ?? 'Komponen Unknown',
-                              _toInt(komponen['id_komponen']),
-                              komponen['jenis_komponen'] ?? '',
-                            );
-                          },
-                        ),
-                  const SizedBox(height: 20),
-                ],
-              ),
+          : TabBarView(
+              controller: _tabController,
+              children: [_buildInspectionTab(), _buildHistoryTab()],
             ),
     );
   }
 
-  Widget _buildKomponenCard(String name, int komponenId, String jenis) {
-    return GestureDetector(
-      onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => LoriDetailScreen(
-              loriName: widget.machineName,
-              loriCode: 'KOMP-$komponenId',
-              initialData: {
-                'id_komponen': komponenId,
-                'nama_komponen': name,
-                'jenis_komponen': jenis,
-              },
+  // TAB 1: INSPEKSI
+  Widget _buildInspectionTab() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Machine Info Card
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [Color(0xFF2196F3), Color(0xFF1976D2)],
+              ),
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.blue.withOpacity(0.3),
+                  spreadRadius: 2,
+                  blurRadius: 8,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Icon(
+                        Icons.directions_railway,
+                        color: Colors.white,
+                        size: 28,
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            _kodeMesin.isNotEmpty ? _kodeMesin : 'No Code',
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: Colors.white70,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            widget.machineName,
+                            style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ],
             ),
           ),
-        );
-      },
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 12),
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.grey.withOpacity(0.05),
-              spreadRadius: 1,
-              blurRadius: 5,
-            ),
-          ],
-        ),
-        child: Row(
-          children: [
+          const SizedBox(height: 20),
+
+          // Overall Health Card
+          if (_overallHealth != null)
             Container(
-              padding: const EdgeInsets.all(10),
+              padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
-                color: Colors.orange[50],
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: const Icon(
-                Icons.build_circle,
-                color: Colors.orange,
-                size: 24,
-              ),
-            ),
-            const SizedBox(width: 15),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    name,
-                    style: const TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF1a2332),
-                    ),
+                gradient: LinearGradient(
+                  colors: [
+                    _getHealthColor(_overallHealth!),
+                    _getHealthColor(_overallHealth!).withOpacity(0.7),
+                  ],
+                ),
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    color: _getHealthColor(_overallHealth!).withOpacity(0.3),
+                    spreadRadius: 2,
+                    blurRadius: 8,
+                    offset: const Offset(0, 4),
                   ),
-                  const SizedBox(height: 4),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 2,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.grey[200],
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Text(
-                      jenis,
-                      style: TextStyle(fontSize: 10, color: Colors.grey[700]),
+                ],
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'Overall Health',
+                    style: TextStyle(fontSize: 16, color: Colors.white70),
+                  ),
+                  Text(
+                    '${_overallHealth!.toStringAsFixed(1)}%',
+                    style: const TextStyle(
+                      fontSize: 32,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
                     ),
                   ),
                 ],
               ),
             ),
-            const Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey),
-          ],
-        ),
+          if (_overallHealth != null) const SizedBox(height: 20),
+
+          // ✅ TAMBAHAN: Form Informasi Inspeksi (Tanggal, PIC, Keterangan)
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.grey.withOpacity(0.1),
+                  spreadRadius: 2,
+                  blurRadius: 8,
+                ),
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Informasi Inspeksi',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF1a2332),
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                // Tanggal
+                const Text(
+                  'Tanggal Inspeksi',
+                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                ),
+                const SizedBox(height: 8),
+                InkWell(
+                  onTap: () async {
+                    final picked = await showDatePicker(
+                      context: context,
+                      initialDate: _inspectionDate,
+                      firstDate: DateTime(2020),
+                      lastDate: DateTime.now(),
+                    );
+                    if (picked != null) {
+                      setState(() => _inspectionDate = picked);
+                      _saveDraft();
+                    }
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 12,
+                    ),
+                    decoration: BoxDecoration(
+                      border: Border.all(color: Colors.grey[300]!),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.calendar_today,
+                          color: Colors.grey[600],
+                          size: 20,
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            DateFormat('dd MMM yyyy').format(_inspectionDate),
+                            style: const TextStyle(fontSize: 14),
+                          ),
+                        ),
+                        Icon(Icons.arrow_drop_down, color: Colors.grey[600]),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                // PIC
+                const Text(
+                  'PIC (Person in Charge)',
+                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                ),
+                const SizedBox(height: 8),
+                TextFormField(
+                  controller: _inspectionPicController,
+                  decoration: InputDecoration(
+                    hintText: 'Masukkan nama PIC',
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 12,
+                    ),
+                    prefixIcon: const Icon(Icons.person),
+                  ),
+                  onChanged: (_) => _saveDraft(),
+                ),
+                const SizedBox(height: 16),
+
+                // Keterangan
+                const Text(
+                  'Keterangan',
+                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                ),
+                const SizedBox(height: 8),
+                TextFormField(
+                  controller: _inspectionKeteranganController,
+                  maxLines: 3,
+                  decoration: InputDecoration(
+                    hintText: 'Masukkan keterangan inspeksi',
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 12,
+                    ),
+                    prefixIcon: const Icon(Icons.note),
+                  ),
+                  onChanged: (_) => _saveDraft(),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 20),
+
+          // Component List Header
+          const Text(
+            'Penilaian Komponen',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: Color(0xFF1a2332),
+            ),
+          ),
+          const SizedBox(height: 12),
+
+          // ✅ Component List (FIXED: Menggunakan Column agar dropdown tidak gepeng/vertikal)
+          ..._komponenList.map((komponen) {
+            final komponenId = komponen['id_komponen'];
+            final komponenName = komponen['nama_komponen'] ?? 'Unknown';
+            final selectedCondition = _komponenConditions[komponenId];
+
+            return Container(
+              margin: const EdgeInsets.only(bottom: 12),
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.grey.withOpacity(0.1),
+                    spreadRadius: 1,
+                    blurRadius: 5,
+                  ),
+                ],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Baris atas: Icon + Nama + Jenis
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: selectedCondition != null
+                              ? _getHealthColor(
+                                  _nilaiPersentase[selectedCondition]!,
+                                ).withOpacity(0.2)
+                              : Colors.grey[100],
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Icon(
+                          Icons.build_circle,
+                          color: selectedCondition != null
+                              ? _getHealthColor(
+                                  _nilaiPersentase[selectedCondition]!,
+                                )
+                              : Colors.grey,
+                          size: 24,
+                        ),
+                      ),
+                      const SizedBox(width: 15),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              komponenName,
+                              style: const TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.bold,
+                                color: Color(0xFF1a2332),
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              komponen['jenis_komponen'] ?? '',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.grey[600],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+
+                  // ✅ Dropdown dengan isExpanded: true agar tidak overflow/vertikal
+                  DropdownButtonFormField<String>(
+                    value: selectedCondition,
+                    isExpanded: true, // <-- INI KUNCI PERBAIKANNYA
+                    decoration: InputDecoration(
+                      hintText: 'Pilih kondisi',
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 12,
+                      ),
+                      filled: true,
+                      fillColor: selectedCondition != null
+                          ? _getHealthColor(
+                              _nilaiPersentase[selectedCondition]!,
+                            ).withOpacity(0.1)
+                          : Colors.grey[50],
+                    ),
+                    items: _kondisiOptions.map((option) {
+                      return DropdownMenuItem(
+                        value: option,
+                        child: Text(
+                          option,
+                          style: const TextStyle(fontSize: 14),
+                        ),
+                      );
+                    }).toList(),
+                    onChanged: (value) {
+                      setState(() {
+                        _komponenConditions[komponenId] = value!;
+                      });
+                      _saveDraft(); // Auto-save setiap perubahan
+                    },
+                  ),
+                ],
+              ),
+            );
+          }).toList(),
+          const SizedBox(height: 20),
+
+          // Submit Button
+          ElevatedButton.icon(
+            onPressed: _isSaving ? null : _submitInspection,
+            icon: _isSaving
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                      color: Colors.white,
+                      strokeWidth: 2,
+                    ),
+                  )
+                : const Icon(Icons.save),
+            label: Text(
+              _isSaving ? 'Menyimpan...' : 'SIMPAN INSPEKSI',
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            ),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF2196F3),
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              elevation: 2,
+            ),
+          ),
+        ],
       ),
     );
+  }
+
+  // TAB 2: HISTORY
+  Widget _buildHistoryTab() {
+    if (_loadingHistory) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (_inspectionHistory.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.history, size: 80, color: Colors.grey[400]),
+            const SizedBox(height: 20),
+            Text(
+              'Belum ada riwayat inspeksi',
+              style: TextStyle(fontSize: 16, color: Colors.grey[600]),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return ListView.builder(
+      padding: const EdgeInsets.all(20),
+      itemCount: _inspectionHistory.length,
+      itemBuilder: (context, index) {
+        final item = _inspectionHistory[index];
+        final tanggal = item['tanggal'] != null
+            ? DateTime.parse(item['tanggal'])
+            : null;
+        final overallHealth = _toDouble(item['overall_health']);
+
+        return Container(
+          margin: const EdgeInsets.only(bottom: 12),
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            border: Border(
+              left: BorderSide(color: _getHealthColor(overallHealth), width: 4),
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.grey.withOpacity(0.1),
+                spreadRadius: 1,
+                blurRadius: 5,
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    _formatDate(tanggal),
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF1a2332),
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      color: _getHealthColor(overallHealth).withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      '${overallHealth.toStringAsFixed(1)}%',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                        color: _getHealthColor(overallHealth),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Icon(Icons.build_circle, size: 16, color: Colors.grey[600]),
+                  const SizedBox(width: 8),
+                  Text(
+                    '${item['komponen_count']} komponen dinilai',
+                    style: TextStyle(fontSize: 13, color: Colors.grey[600]),
+                  ),
+                ],
+              ),
+              if (item['description'] != null &&
+                  item['description'].toString().isNotEmpty) ...[
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Icon(Icons.person, size: 16, color: Colors.grey[600]),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'PIC: ${item['description']}',
+                        style: TextStyle(fontSize: 13, color: Colors.grey[600]),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    // ✅ Dispose controller baru agar tidak memory leak
+    _inspectionPicController.dispose();
+    _inspectionKeteranganController.dispose();
+    super.dispose();
   }
 }

@@ -359,9 +359,7 @@ class _MachineDetailScreenState extends State<MachineDetailScreen>
         final healthAfter = result['health_after'];
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(
-              'Inspeksi berhasil disimpan! Health: $healthAfter%',
-            ),
+            content: Text('Inspeksi berhasil disimpan! Health: $healthAfter%'),
             backgroundColor: Colors.green,
           ),
         );

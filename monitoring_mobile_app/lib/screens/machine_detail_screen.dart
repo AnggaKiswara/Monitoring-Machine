@@ -5,6 +5,7 @@ import 'dart:convert';
 import '../services/api_services.dart';
 import 'lori_detail_screen.dart';
 import 'input_inspection_screen.dart';
+import 'inspection_history_detail_screen.dart';
 
 class MachineDetailScreen extends StatefulWidget {
   final String machineName;
@@ -79,9 +80,10 @@ class _MachineDetailScreenState extends State<MachineDetailScreen>
   }
 
   Future<void> _loadData() async {
+    // Load komponen dulu agar _komponenCount tersedia untuk history
+    await _loadKomponen();
     await Future.wait([
       _loadMachineDetail(),
-      _loadKomponen(),
       _loadInspectionData(),
       _loadHistory(),
     ]);
@@ -884,87 +886,121 @@ class _MachineDetailScreenState extends State<MachineDetailScreen>
             : null;
         final overallHealth = _toDouble(item['overall_health']);
 
-        return Container(
-          margin: const EdgeInsets.only(bottom: 12),
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(12),
-            border: Border(
-              left: BorderSide(color: _getHealthColor(overallHealth), width: 4),
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.grey.withOpacity(0.1),
-                spreadRadius: 1,
-                blurRadius: 5,
-              ),
-            ],
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    _formatDate(tanggal),
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF1a2332),
-                    ),
+        return GestureDetector(
+          onTap: () {
+            final serviceId = _toInt(item['id']);
+            if (serviceId > 0) {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => InspectionHistoryDetailScreen(
+                    machineId: widget.machineId,
+                    serviceId: serviceId,
+                    machineName: widget.machineName,
                   ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 6,
-                    ),
-                    decoration: BoxDecoration(
-                      color: _getHealthColor(overallHealth).withOpacity(0.2),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Text(
-                      '${overallHealth.toStringAsFixed(1)}%',
-                      style: TextStyle(
-                        fontSize: 14,
+                ),
+              );
+            }
+          },
+          child: Container(
+            margin: const EdgeInsets.only(bottom: 12),
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              border: Border(
+                left: BorderSide(color: _getHealthColor(overallHealth), width: 4),
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.grey.withOpacity(0.1),
+                  spreadRadius: 1,
+                  blurRadius: 5,
+                ),
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      _formatDate(tanggal),
+                      style: const TextStyle(
+                        fontSize: 16,
                         fontWeight: FontWeight.bold,
-                        color: _getHealthColor(overallHealth),
+                        color: Color(0xFF1a2332),
                       ),
                     ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  Icon(Icons.build_circle, size: 16, color: Colors.grey[600]),
-                  const SizedBox(width: 8),
-                  Text(
-                    '${item['komponen_count']} komponen dinilai',
-                    style: TextStyle(fontSize: 13, color: Colors.grey[600]),
-                  ),
-                ],
-              ),
-              if (item['description'] != null &&
-                  item['description'].toString().isNotEmpty) ...[
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    Icon(Icons.person, size: 16, color: Colors.grey[600]),
-                    const SizedBox(width: 8),
-                    Expanded(
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: _getHealthColor(overallHealth).withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
                       child: Text(
-                        'PIC: ${item['description']}',
-                        style: TextStyle(fontSize: 13, color: Colors.grey[600]),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+                        '${overallHealth.toStringAsFixed(1)}%',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                          color: _getHealthColor(overallHealth),
+                        ),
                       ),
                     ),
                   ],
                 ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Icon(Icons.build_circle, size: 16, color: Colors.grey[600]),
+                    const SizedBox(width: 8),
+                    Text(
+                      '${_komponenList.length} komponen dinilai',
+                      style: TextStyle(fontSize: 13, color: Colors.grey[600]),
+                    ),
+                  ],
+                ),
+                if (item['description'] != null &&
+                    item['description'].toString().isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Icon(Icons.person, size: 16, color: Colors.grey[600]),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          '${item['description']}',
+                          style: TextStyle(fontSize: 13, color: Colors.grey[600]),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+                // Indicator klik
+                const SizedBox(height: 8),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    Text(
+                      'Lihat Detail',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.blue[600],
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    Icon(Icons.arrow_forward_ios, size: 12, color: Colors.blue[600]),
+                  ],
+                ),
               ],
-            ],
+            ),
           ),
         );
       },

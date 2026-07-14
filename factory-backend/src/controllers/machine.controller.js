@@ -394,13 +394,47 @@ module.exports.submitInspection = async (req, res) => {
         [id_komponen]
       );
 
-      // Insert sensor_reading untuk setiap parameter
-      for (const param of parameters) {
+      if (parameters.length > 0) {
+        // Insert sensor_reading untuk setiap parameter yang sudah di-mapping
+        for (const param of parameters) {
+          await connection.query(
+            `INSERT INTO sensor_reading (id_komponen, id_parameter, nilai, recorded_at)
+             VALUES (?, ?, ?, ?)`,
+            [id_komponen, param.id_parameter, nilai, serviceDate]
+          );
+        }
+      } else {
+        // Jika belum ada mapping komponen_parameter, cari/buat parameter default "kondisi"
+        let defaultParamId;
+
+        const [existingParam] = await connection.query(
+          `SELECT id_parameter FROM parameter WHERE nama_parameter = 'kondisi'`
+        );
+
+        if (existingParam.length > 0) {
+          defaultParamId = existingParam[0].id_parameter;
+        } else {
+          // Buat parameter default "kondisi"
+          const [newParam] = await connection.query(
+            `INSERT INTO parameter (nama_parameter, satuan, nilai_min, nilai_max) VALUES ('kondisi', '%', 0, 100)`
+          );
+          defaultParamId = newParam.insertId;
+        }
+
+        // Buat mapping komponen_parameter
+        await connection.query(
+          `INSERT IGNORE INTO komponen_parameter (id_komponen, id_parameter, is_active) VALUES (?, ?, 1)`,
+          [id_komponen, defaultParamId]
+        );
+
+        // Insert sensor_reading
         await connection.query(
           `INSERT INTO sensor_reading (id_komponen, id_parameter, nilai, recorded_at)
            VALUES (?, ?, ?, ?)`,
-          [id_komponen, param.id_parameter, nilai, serviceDate]
+          [id_komponen, defaultParamId, nilai, serviceDate]
         );
+
+        console.log(`Auto-created parameter mapping for komponen ${id_komponen}`);
       }
 
       // Update kesehatan komponen

@@ -10,6 +10,7 @@ router.put("/:id", authorize("admin"), ctrl.update);
 router.delete("/:id", authorize("admin"), ctrl.remove);
 router.post("/:id/hm", authenticate, ctrl.updateHM);
 router.post("/:id/pm", authenticate, ctrl.recordPM);
+router.post("/:id/inspection", authenticate, ctrl.submitInspection);
 router.get("/:id/history", authenticate, ctrl.getServiceHistory);
 router.get("/:id/pm-status", authenticate, ctrl.getPMStatus);
 

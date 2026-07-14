@@ -464,6 +464,48 @@ class ApiServices {
       throw Exception('Gagal memuat data terbaru');
     }
   }
+  // ==================== INSPECTION ====================
+
+  // Submit inspeksi lengkap (1 request = semua komponen + history)
+  static Future<Map<String, dynamic>> submitInspection({
+    required int machineId,
+    required String tanggalInspeksi,
+    required String pic,
+    String? keterangan,
+    required List<Map<String, dynamic>> komponenConditions,
+  }) async {
+    final headers = await _getHeaders();
+
+    print('=== SUBMIT INSPECTION REQUEST ===');
+    print('URL: $baseUrl/machines/$machineId/inspection');
+    print('PIC: $pic');
+    print('Komponen count: ${komponenConditions.length}');
+
+    final response = await http.post(
+      Uri.parse('$baseUrl/machines/$machineId/inspection'),
+      headers: headers,
+      body: json.encode({
+        'tanggal_inspeksi': tanggalInspeksi,
+        'pic': pic,
+        'keterangan': keterangan,
+        'komponen_conditions': komponenConditions,
+      }),
+    );
+
+    print('=== SUBMIT INSPECTION RESPONSE ===');
+    print('Status Code: ${response.statusCode}');
+    print('Response Body: ${response.body}');
+
+    if (response.statusCode == 201 || response.statusCode == 200) {
+      dynamic decoded = json.decode(response.body);
+      return _extractData(decoded) as Map<String, dynamic>;
+    } else {
+      dynamic decoded = json.decode(response.body);
+      String message = decoded['message'] ?? 'Gagal menyimpan inspeksi';
+      throw Exception(message);
+    }
+  }
+
   // ==================== MACHINE HM & PM ====================
 
   // Update HM

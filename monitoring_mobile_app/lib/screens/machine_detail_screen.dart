@@ -301,7 +301,7 @@ class _MachineDetailScreenState extends State<MachineDetailScreen>
 
   // Submit inspeksi
   Future<void> _submitInspection() async {
-    // ✅ Validasi PIC
+    // Validasi PIC
     if (_inspectionPicController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -325,38 +325,48 @@ class _MachineDetailScreenState extends State<MachineDetailScreen>
     setState(() => _isSaving = true);
 
     try {
-      // Simpan data untuk setiap komponen
+      // Build daftar kondisi komponen
+      final List<Map<String, dynamic>> komponenConditions = [];
+
       for (var komponen in _komponenList) {
         final komponenId = komponen['id_komponen'];
         final kondisi = _komponenConditions[komponenId];
 
         if (kondisi != null) {
-          final parameters = await ApiServices.getParametersByKomponen(
-            komponenId,
-          );
-
-          for (var param in parameters) {
-            await ApiServices.submitSensorReading(
-              idKomponen: komponenId,
-              idParameter: param['id_parameter'],
-              nilai: _nilaiPersentase[kondisi] ?? 0,
-            );
-          }
+          komponenConditions.add({
+            'id_komponen': komponenId,
+            'kondisi': kondisi,
+            'nilai': _nilaiPersentase[kondisi] ?? 0,
+          });
         }
       }
+
+      // Kirim semua data dalam 1 request
+      final result = await ApiServices.submitInspection(
+        machineId: widget.machineId,
+        tanggalInspeksi: DateFormat('yyyy-MM-dd').format(_inspectionDate),
+        pic: _inspectionPicController.text.trim(),
+        keterangan: _inspectionKeteranganController.text.trim().isNotEmpty
+            ? _inspectionKeteranganController.text.trim()
+            : null,
+        komponenConditions: komponenConditions,
+      );
 
       // Clear draft setelah berhasil simpan
       await _clearDraft();
 
       if (mounted) {
+        final healthAfter = result['health_after'];
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Inspeksi berhasil disimpan'),
+          SnackBar(
+            content: Text(
+              'Inspeksi berhasil disimpan! Health: $healthAfter%',
+            ),
             backgroundColor: Colors.green,
           ),
         );
 
-        // ✅ Reset form setelah sukses
+        // Reset form setelah sukses
         setState(() {
           _komponenConditions.clear();
           _inspectionPicController.clear();

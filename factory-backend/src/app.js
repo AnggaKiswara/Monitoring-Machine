@@ -2,6 +2,7 @@ const express = require("express");
 const cors = require("cors");
 const helmet = require("helmet");
 const morgan = require("morgan");
+const path = require("path");
 
 const errorHandler = require("./middleware/errorHandler");
 const db = require("./config/db"); // Tambahkan ini (sesuaikan path jika berbeda)
@@ -21,10 +22,13 @@ const factoryRoutes = require("./routes/factory.routes");
 const app = express();
 
 // Middleware global
-app.use(helmet());
+app.use(helmet({ crossOriginResourcePolicy: { policy: "cross-origin" } }));
 app.use(cors());
 app.use(express.json());
 app.use(morgan(process.env.NODE_ENV === "production" ? "combined" : "dev"));
+
+// Serve static files (foto inspeksi)
+app.use("/uploads", express.static(path.join(__dirname, "..", "uploads")));
 
 // Health check
 app.get("/health", (req, res) => res.json({ success: true, message: "API is running" }));

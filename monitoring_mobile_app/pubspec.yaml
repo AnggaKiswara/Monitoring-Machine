@@ -46,6 +46,9 @@ dependencies:
   flutter_svg: ^2.0.10
   font_awesome_flutter: ^10.7.0
 
+  # Image picker (camera & gallery)
+  image_picker: ^1.0.7
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

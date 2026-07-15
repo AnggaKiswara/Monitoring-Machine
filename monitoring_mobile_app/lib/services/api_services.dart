@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -531,6 +532,56 @@ class ApiServices {
     } else {
       dynamic decoded = json.decode(response.body);
       String message = decoded['message'] ?? 'Gagal memuat detail inspeksi';
+      throw Exception(message);
+    }
+  }
+
+  // Upload foto inspeksi (multipart)
+  static Future<List<dynamic>> uploadInspectionPhotos({
+    required int machineId,
+    required int serviceId,
+    required List<File> photos,
+    String? caption,
+  }) async {
+    final token = await _getToken();
+
+    print('=== UPLOAD INSPECTION PHOTOS ===');
+    print('URL: $baseUrl/machines/$machineId/inspection/$serviceId/photos');
+    print('Photos count: ${photos.length}');
+
+    final uri = Uri.parse(
+      '$baseUrl/machines/$machineId/inspection/$serviceId/photos',
+    );
+
+    final request = http.MultipartRequest('POST', uri);
+
+    if (token != null && !DEMO_MODE) {
+      request.headers['Authorization'] = 'Bearer $token';
+    }
+
+    if (caption != null && caption.isNotEmpty) {
+      request.fields['caption'] = caption;
+    }
+
+    for (final photo in photos) {
+      request.files.add(
+        await http.MultipartFile.fromPath('photos', photo.path),
+      );
+    }
+
+    final streamedResponse = await request.send();
+    final response = await http.Response.fromStream(streamedResponse);
+
+    print('=== UPLOAD PHOTOS RESPONSE ===');
+    print('Status Code: ${response.statusCode}');
+    print('Response Body: ${response.body}');
+
+    if (response.statusCode == 201 || response.statusCode == 200) {
+      dynamic decoded = json.decode(response.body);
+      return _extractData(decoded) as List<dynamic>;
+    } else {
+      dynamic decoded = json.decode(response.body);
+      String message = decoded['message'] ?? 'Gagal upload foto';
       throw Exception(message);
     }
   }

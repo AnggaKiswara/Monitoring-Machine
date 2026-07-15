@@ -1,5 +1,34 @@
 const crudFactory = require("../utils/crudFactory");
 const db = require("../config/db");
+const multer = require("multer");
+const path = require("path");
+
+// Multer config untuk upload foto inspeksi
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, path.join(__dirname, "..", "..", "uploads", "inspections"));
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
+    const ext = path.extname(file.originalname);
+    cb(null, `inspection-${uniqueSuffix}${ext}`);
+  },
+});
+
+const upload = multer({
+  storage,
+  limits: { fileSize: 10 * 1024 * 1024 }, // Max 10MB
+  fileFilter: (req, file, cb) => {
+    const allowed = /jpeg|jpg|png|webp/;
+    const extOk = allowed.test(path.extname(file.originalname).toLowerCase());
+    const mimeOk = allowed.test(file.mimetype);
+    if (extOk && mimeOk) cb(null, true);
+    else cb(new Error("Hanya file gambar (jpg, png, webp) yang diizinkan"));
+  },
+});
+
+// Export multer middleware agar bisa dipakai di routes
+module.exports.uploadMiddleware = upload.array("photos", 10); // max 10 foto
 
 // Simpan hasil crudFactory ke variable
 const crud = crudFactory("machine", "id_mesin");
@@ -338,15 +367,80 @@ module.exports.getInspectionDetail = async (req, res) => {
       };
     });
 
+    // 5. Ambil foto inspeksi
+    const [photos] = await db.query(
+      `SELECT id_photo, id_komponen, photo_path, caption, 
+        DATE_FORMAT(created_at, '%Y-%m-%d %H:%i:%s') as created_at
+      FROM inspection_photo 
+      WHERE id_service = ?
+      ORDER BY id_photo`,
+      [serviceId]
+    );
+
     res.json({
       success: true,
       data: {
         ...service,
         komponen: komponenList,
+        photos: photos,
       },
     });
   } catch (error) {
     console.error("Error fetching inspection detail:", error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// POST - Upload foto inspeksi
+module.exports.uploadInspectionPhotos = async (req, res) => {
+  try {
+    const { serviceId } = req.params;
+    const { id_komponen, caption } = req.body;
+
+    if (!req.files || req.files.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Tidak ada file yang diupload",
+      });
+    }
+
+    // Verify service exists
+    const [services] = await db.query(
+      "SELECT id_service FROM service_history WHERE id_service = ?",
+      [serviceId]
+    );
+    if (services.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "Data inspeksi tidak ditemukan",
+      });
+    }
+
+    const insertedPhotos = [];
+
+    for (const file of req.files) {
+      const photoPath = `uploads/inspections/${file.filename}`;
+
+      const [result] = await db.query(
+        `INSERT INTO inspection_photo (id_service, id_komponen, photo_path, caption)
+         VALUES (?, ?, ?, ?)`,
+        [serviceId, id_komponen || null, caption || null, photoPath]
+      );
+
+      insertedPhotos.push({
+        id_photo: result.insertId,
+        photo_path: photoPath,
+        caption: caption || null,
+      });
+    }
+
+    res.status(201).json({
+      success: true,
+      message: `${insertedPhotos.length} foto berhasil diupload`,
+      data: insertedPhotos,
+    });
+  } catch (error) {
+    console.error("Error uploading photos:", error);
     res.status(500).json({ success: false, message: error.message });
   }
 };

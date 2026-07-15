@@ -266,8 +266,8 @@ class _MachineListScreenState extends State<MachineListScreen> {
     );
 
     return GestureDetector(
-      onTap: () {
-        Navigator.push(
+      onTap: () async {
+        await Navigator.push(
           context,
           MaterialPageRoute(
             builder: (context) => MachineDetailScreen(
@@ -280,6 +280,8 @@ class _MachineListScreenState extends State<MachineListScreen> {
             ),
           ),
         );
+        // Refresh list saat kembali dari detail (setelah inspeksi, health berubah)
+        _loadLoriList();
       },
       child: Container(
         margin: const EdgeInsets.only(bottom: 12),

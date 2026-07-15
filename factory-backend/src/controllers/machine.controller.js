@@ -12,33 +12,86 @@ module.exports = {
   remove: crud.remove,
 };
 
-// POST - Create machine baru
+// Template komponen default untuk setiap Lori baru
+const DEFAULT_KOMPONEN = [
+  { nama: "Body", jenis: "Structural" },
+  { nama: "Siku", jenis: "Structural" },
+  { nama: "Steam Spreader", jenis: "Mechanical" },
+  { nama: "Chasis", jenis: "Structural" },
+  { nama: "Hook", jenis: "Mechanical" },
+  { nama: "Cover Roda", jenis: "Mechanical" },
+  { nama: "Roda", jenis: "Mechanical" },
+  { nama: "Lantai", jenis: "Structural" },
+];
+
+// POST - Create machine baru + auto-create komponen default
 module.exports.create = async (req, res) => {
+  const connection = await db.getConnection();
+
   try {
     const { id_station, kode_mesin, nama_mesin, health_mesin } = req.body;
 
-    const [result] = await db.query("INSERT INTO machine (id_station, kode_mesin, nama_mesin, health_mesin, created_at) VALUES (?, ?, ?, ?, NOW())", [
-      id_station,
-      kode_mesin || null,
-      nama_mesin,
-      health_mesin || 0,
-    ]);
+    await connection.beginTransaction();
+
+    // 1. Create machine
+    const [result] = await connection.query(
+      "INSERT INTO machine (id_station, kode_mesin, nama_mesin, health_mesin, created_at) VALUES (?, ?, ?, ?, NOW())",
+      [id_station, kode_mesin || null, nama_mesin, health_mesin || 0]
+    );
+
+    const newMachineId = result.insertId;
+
+    // 2. Pastikan parameter "kondisi" ada
+    let kondisiParamId;
+    const [existingParam] = await connection.query(
+      "SELECT id_parameter FROM parameter WHERE nama_parameter = 'kondisi'"
+    );
+
+    if (existingParam.length > 0) {
+      kondisiParamId = existingParam[0].id_parameter;
+    } else {
+      const [newParam] = await connection.query(
+        "INSERT INTO parameter (nama_parameter, satuan, nilai_min, nilai_max) VALUES ('kondisi', '%', 0, 100)"
+      );
+      kondisiParamId = newParam.insertId;
+    }
+
+    // 3. Auto-create komponen default + mapping parameter
+    for (const komp of DEFAULT_KOMPONEN) {
+      const [kompResult] = await connection.query(
+        "INSERT INTO komponen (id_mesin, nama_komponen, jenis_komponen, avg_health_all_parameter, created_at) VALUES (?, ?, ?, 0, NOW())",
+        [newMachineId, komp.nama, komp.jenis]
+      );
+
+      // Mapping komponen ke parameter "kondisi"
+      await connection.query(
+        "INSERT INTO komponen_parameter (id_komponen, id_parameter, is_active) VALUES (?, ?, 1)",
+        [kompResult.insertId, kondisiParamId]
+      );
+    }
+
+    await connection.commit();
 
     res.status(201).json({
       success: true,
+      message: `Machine berhasil dibuat dengan ${DEFAULT_KOMPONEN.length} komponen default`,
       data: {
-        id_mesin: result.insertId,
+        id_mesin: newMachineId,
         id_station,
         kode_mesin,
         nama_mesin,
         health_mesin: health_mesin || 0,
+        komponen_count: DEFAULT_KOMPONEN.length,
       },
     });
   } catch (error) {
+    await connection.rollback();
     res.status(500).json({
       success: false,
       message: error.message,
     });
+  } finally {
+    connection.release();
   }
 };
 
@@ -169,8 +222,8 @@ module.exports.getServiceHistory = async (req, res) => {
         sh.description,
         sh.health_mesin_before,
         sh.health_mesin_after,
-        sh.service_date,
-        sh.next_service_date,
+        DATE_FORMAT(sh.service_date, '%Y-%m-%d') as service_date,
+        DATE_FORMAT(sh.next_service_date, '%Y-%m-%d') as next_service_date,
         u.nama_lengkap as teknisi_name
       FROM service_history sh
       LEFT JOIN user_account u ON sh.id_user = u.id_user
@@ -203,9 +256,9 @@ module.exports.getInspectionDetail = async (req, res) => {
         sh.description,
         sh.health_mesin_before,
         sh.health_mesin_after,
-        sh.service_date,
-        sh.next_service_date,
-        sh.created_at,
+        DATE_FORMAT(sh.service_date, '%Y-%m-%d') as service_date,
+        DATE_FORMAT(sh.next_service_date, '%Y-%m-%d') as next_service_date,
+        DATE_FORMAT(sh.created_at, '%Y-%m-%d %H:%i:%s') as created_at,
         u.nama_lengkap as teknisi_name
       FROM service_history sh
       LEFT JOIN user_account u ON sh.id_user = u.id_user

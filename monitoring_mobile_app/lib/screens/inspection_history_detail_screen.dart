@@ -605,7 +605,118 @@ class _InspectionHistoryDetailScreenState
               ),
             );
           }).toList(),
+
+          const SizedBox(height: 20),
+
+          // ✅ FOTO INSPEKSI (dari upload saat inspeksi)
+          _buildPhotoSection(),
         ],
+      ),
+    );
+  }
+
+  Widget _buildPhotoSection() {
+    final photos = _detail!['photos'] as List<dynamic>? ?? [];
+    if (photos.isEmpty) return const SizedBox.shrink();
+
+    // Base host: baseUrl = http://host:port/api → origin = http://host:port
+    final origin = Uri.parse(ApiServices.baseUrl).origin;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Text(
+              'Foto Inspeksi',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF1a2332),
+              ),
+            ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: const Color(0xFF1a2332).withOpacity(0.1),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Text(
+                '${photos.length} foto',
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFF1a2332),
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        GridView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 3,
+            crossAxisSpacing: 8,
+            mainAxisSpacing: 8,
+          ),
+          itemCount: photos.length,
+          itemBuilder: (ctx, i) {
+            final photo = photos[i];
+            final path = photo['photo_path']?.toString() ?? '';
+            final url = path.isNotEmpty ? '$origin/$path' : '';
+            final caption = photo['caption']?.toString() ?? '';
+            return GestureDetector(
+              onTap: () => _showPhotoFullscreen(url, caption),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: url.isNotEmpty
+                    ? Image.network(
+                        url,
+                        fit: BoxFit.cover,
+                        loadingBuilder: (c, child, prog) =>
+                            prog == null ? child : const Center(child: CircularProgressIndicator(strokeWidth: 2)),
+                        errorBuilder: (c, e, s) => Container(
+                          color: Colors.grey[200],
+                          child: const Icon(Icons.broken_image, color: Colors.grey),
+                        ),
+                      )
+                    : Container(color: Colors.grey[200]),
+              ),
+            );
+          },
+        ),
+      ],
+    );
+  }
+
+  void _showPhotoFullscreen(String url, String caption) {
+    if (url.isEmpty) return;
+    showDialog(
+      context: context,
+      builder: (ctx) => Dialog(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Image.network(url, fit: BoxFit.contain,
+              errorBuilder: (c, e, s) => const Padding(
+                padding: EdgeInsets.all(20),
+                child: Icon(Icons.broken_image, size: 60, color: Colors.grey),
+              ),
+            ),
+            if (caption.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.all(12),
+                child: Text(caption, style: const TextStyle(fontSize: 13)),
+              ),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Tutup'),
+            ),
+          ],
+        ),
       ),
     );
   }

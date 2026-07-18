@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'dart:io';
+import 'package:image_picker/image_picker.dart';
 import '../services/api_services.dart';
 
 class InputInspectionScreen extends StatefulWidget {
@@ -27,7 +29,63 @@ class _InputInspectionScreenState extends State<InputInspectionScreen> {
   DateTime _tanggalInspeksi = DateTime.now();
   DateTime? _tanggalPM;
   bool _isLoading = false;
+  bool _isUploading = false;
+  List<File> _photos = []; // ✅ Foto inspeksi yang dipilih
   Map<String, dynamic>? _pmStatus;
+  final ImagePicker _picker = ImagePicker();
+
+  // ✅ Ambil foto dari kamera / galeri
+  Future<void> _pickPhoto(ImageSource source) async {
+    try {
+      final XFile? picked = await _picker.pickImage(
+        source: source,
+        imageQuality: 80, // kompres biar ringan
+        maxWidth: 1280,
+      );
+      if (picked != null) {
+        setState(() => _photos.add(File(picked.path)));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Gagal ambil foto: $e'), backgroundColor: Colors.red),
+        );
+      }
+    }
+  }
+
+  void _removePhoto(int index) {
+    setState(() => _photos.removeAt(index));
+  }
+
+  void _showPhotoSourceSheet() {
+    showModalBottomSheet(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.camera_alt),
+              title: const Text('Ambil Foto (Kamera)'),
+              onTap: () {
+                Navigator.pop(ctx);
+                _pickPhoto(ImageSource.camera);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.photo_library),
+              title: const Text('Pilih dari Galeri'),
+              onTap: () {
+                Navigator.pop(ctx);
+                _pickPhoto(ImageSource.gallery);
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 
   // ✅ Data inspection terakhir
   List<dynamic> _inspectionHistory = [];
@@ -146,19 +204,45 @@ class _InputInspectionScreenState extends State<InputInspectionScreen> {
     setState(() => _isLoading = true);
 
     try {
-      // Record PM (tetap INSERT untuk menyimpan history)
-      await ApiServices.recordPM(
+      // 1️⃣ Record PM (tetap INSERT untuk menyimpan history)
+      final pmResult = await ApiServices.recordPM(
         machineId: widget.machineId,
         tanggalService: _tanggalPM,
         keterangan: _picController.text.trim(),
       );
+      final int? serviceId = pmResult['id_service'];
+
+      // 2️⃣ Upload foto inspeksi (jika ada) — sekaligus saat simpan
+      if (_photos.isNotEmpty && serviceId != null) {
+        setState(() => _isUploading = true);
+        try {
+          await ApiServices.uploadInspectionPhotos(
+            machineId: widget.machineId,
+            serviceId: serviceId,
+            photos: _photos,
+            caption: _picController.text.trim(),
+          );
+        } catch (e) {
+          // Foto gagal, tapi inspeksi tetap tercatat — info ke user
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Inspeksi tersimpan, tapi upload foto gagal: $e'),
+                backgroundColor: Colors.orange,
+              ),
+            );
+          }
+        } finally {
+          if (mounted) setState(() => _isUploading = false);
+        }
+      }
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
               _lastInspection == null
-                  ? 'Inspeksi berhasil dicatat'
+                  ? 'Inspeksi berhasil dicatat${_photos.isNotEmpty ? ' + ${_photos.length} foto' : ''}'
                   : 'Inspeksi berhasil diupdate',
             ),
             backgroundColor: Colors.green,
@@ -569,9 +653,148 @@ class _InputInspectionScreenState extends State<InputInspectionScreen> {
                     ),
                     const SizedBox(height: 20),
 
+                    // 5️⃣ FOTO INSPEKSI
+                    Container(
+                      padding: const EdgeInsets.all(20),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(16),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.grey.withOpacity(0.1),
+                            spreadRadius: 2,
+                            blurRadius: 8,
+                          ),
+                        ],
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              const Icon(Icons.photo_camera,
+                                  color: Color(0xFF1a2332), size: 20),
+                              const SizedBox(width: 8),
+                              const Text(
+                                'Foto Inspeksi',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.bold,
+                                  color: Color(0xFF1a2332),
+                                ),
+                              ),
+                              const Spacer(),
+                              TextButton.icon(
+                                onPressed: _showPhotoSourceSheet,
+                                icon: const Icon(Icons.add_a_photo, size: 18),
+                                label: const Text('Tambah'),
+                                style: TextButton.styleFrom(
+                                  foregroundColor: const Color(0xFF2196F3),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          if (_photos.isEmpty)
+                            Container(
+                              width: double.infinity,
+                              padding: const EdgeInsets.all(20),
+                              decoration: BoxDecoration(
+                                border: Border.all(
+                                  color: Colors.grey[300]!,
+                                  width: 1.5,
+                                ),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: InkWell(
+                                onTap: _showPhotoSourceSheet,
+                                child: Column(
+                                  children: [
+                                    Icon(Icons.add_photo_alternate,
+                                        size: 40, color: Colors.grey[400]),
+                                    const SizedBox(height: 8),
+                                    Text(
+                                      'Tap untuk tambah foto',
+                                      style: TextStyle(
+                                        color: Colors.grey[500],
+                                        fontSize: 13,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            )
+                          else
+                            GridView.builder(
+                              shrinkWrap: true,
+                              physics: const NeverScrollableScrollPhysics(),
+                              gridDelegate:
+                                  const SliverGridDelegateWithFixedCrossAxisCount(
+                                crossAxisCount: 3,
+                                crossAxisSpacing: 8,
+                                mainAxisSpacing: 8,
+                              ),
+                              itemCount: _photos.length,
+                              itemBuilder: (ctx, i) => Stack(
+                                children: [
+                                  Positioned.fill(
+                                    child: ClipRRect(
+                                      borderRadius: BorderRadius.circular(8),
+                                      child: Image.file(
+                                        _photos[i],
+                                        fit: BoxFit.cover,
+                                      ),
+                                    ),
+                                  ),
+                                  Positioned(
+                                    top: 4,
+                                    right: 4,
+                                    child: GestureDetector(
+                                      onTap: () => _removePhoto(i),
+                                      child: Container(
+                                        decoration: const BoxDecoration(
+                                          color: Colors.black54,
+                                          shape: BoxShape.circle,
+                                        ),
+                                        padding: const EdgeInsets.all(4),
+                                        child: const Icon(Icons.close,
+                                            size: 16, color: Colors.white),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          if (_isUploading)
+                            const Padding(
+                              padding: EdgeInsets.only(top: 12),
+                              child: Row(
+                                children: [
+                                  SizedBox(
+                                    width: 16,
+                                    height: 16,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: Color(0xFF2196F3),
+                                    ),
+                                  ),
+                                  SizedBox(width: 8),
+                                  Text('Mengupload foto...',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: Colors.grey,
+                                      )),
+                                ],
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+
                     // 6️⃣ TOMBOL SUBMIT (LEBAR PENUH)
                     ElevatedButton(
-                      onPressed: _isLoading ? null : _submitInspection,
+                      onPressed: _isLoading || _isUploading ? null : _submitInspection,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFF2196F3),
                         padding: const EdgeInsets.symmetric(vertical: 16),

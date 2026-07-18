@@ -184,7 +184,54 @@ class ApiServices {
     }
   }
 
-  // Update getStations untuk filter by factory
+  // ==================== CREATE FACTORY ====================
+  static Future<Map<String, dynamic>> createFactory({
+    required String namaFactory,
+    String? lokasiFactory,
+  }) async {
+    final headers = await _getHeaders();
+    final response = await http.post(
+      Uri.parse('$baseUrl/factories'),
+      headers: headers,
+      body: json.encode({
+        'nama_factory': namaFactory,
+        'lokasi_factory': lokasiFactory ?? '',
+        'health_factory': 0,
+      }),
+    );
+    if (response.statusCode == 201 || response.statusCode == 200) {
+      dynamic decoded = json.decode(response.body);
+      return _extractData(decoded) as Map<String, dynamic>;
+    } else {
+      dynamic decoded = json.decode(response.body);
+      throw Exception(decoded['message'] ?? 'Gagal menambah factory');
+    }
+  }
+
+  // ==================== CREATE STATION ====================
+  static Future<Map<String, dynamic>> createStation({
+    required int factoryId,
+    required String namaStation,
+  }) async {
+    final headers = await _getHeaders();
+    final response = await http.post(
+      Uri.parse('$baseUrl/stations'),
+      headers: headers,
+      body: json.encode({
+        'id_factory': factoryId,
+        'nama_station': namaStation,
+      }),
+    );
+    if (response.statusCode == 201 || response.statusCode == 200) {
+      dynamic decoded = json.decode(response.body);
+      return _extractData(decoded) as Map<String, dynamic>;
+    } else {
+      dynamic decoded = json.decode(response.body);
+      throw Exception(decoded['message'] ?? 'Gagal menambah station');
+    }
+  }
+
+  // ==================== STATIONS ====================
   static Future<List<dynamic>> getStationsByFactory({
     required int factoryId,
   }) async {

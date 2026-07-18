@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'station_list_screen.dart'; // <-- Tambahkan import ini
+import 'station_list_screen.dart';
+import '../services/api_services.dart';
 
 class FactoryListScreen extends StatefulWidget {
   const FactoryListScreen({super.key});
@@ -9,15 +10,43 @@ class FactoryListScreen extends StatefulWidget {
 }
 
 class _FactoryListScreenState extends State<FactoryListScreen> {
-  int _selectedIndex = 1; // Set ke 1 (List/Station) karena kita ada di tab List
+  int _selectedIndex = 1; // Tab "Station/List"
+  List<dynamic> _factories = [];
+  bool _loading = true;
+  String? _error;
 
-  // Data Dummy untuk Pabrik
-  final List<Map<String, dynamic>> factories = [
-    {'name': 'Kendawangan Mill', 'location': 'KNDM 60 Tph', 'health': 92},
-    {'name': 'Membuluh Sejahtera Mill', 'location': '-', 'health': 85},
-    {'name': 'Serasau Mill', 'location': '-', 'health': 78},
-    {'name': 'Bukit Belaban Mill', 'location': '-', 'health': 95},
-  ];
+  @override
+  void initState() {
+    super.initState();
+    _loadFactories();
+  }
+
+  Future<void> _loadFactories() async {
+    try {
+      setState(() {
+        _loading = true;
+        _error = null;
+      });
+      final data = await ApiServices.getFactories();
+      setState(() {
+        _factories = data;
+        _loading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _error = e.toString();
+        _loading = false;
+      });
+    }
+  }
+
+  int _toInt(dynamic v) {
+    if (v == null) return 0;
+    if (v is int) return v;
+    if (v is double) return v.toInt();
+    if (v is String) return int.tryParse(v) ?? 0;
+    return 0;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -39,65 +68,88 @@ class _FactoryListScreenState extends State<FactoryListScreen> {
           ),
         ),
       ),
-      body: Column(
-        children: [
-          // Search Bar
-          Padding(
-            padding: const EdgeInsets.all(20),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(12),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.grey.withOpacity(0.1),
-                    spreadRadius: 1,
-                    blurRadius: 5,
+      body: _loading
+          ? const Center(child: CircularProgressIndicator())
+          : _error != null
+              ? Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(Icons.error_outline, size: 60, color: Colors.red),
+                      const SizedBox(height: 16),
+                      Text('Gagal: $_error'),
+                      const SizedBox(height: 20),
+                      ElevatedButton(
+                        onPressed: _loadFactories,
+                        child: const Text('Coba Lagi'),
+                      ),
+                    ],
                   ),
-                ],
-              ),
-              child: Row(
-                children: [
-                  const Icon(Icons.search, color: Colors.grey),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: TextField(
-                      decoration: InputDecoration(
-                        hintText: 'Search factory...',
-                        hintStyle: TextStyle(color: Colors.grey[400]),
-                        border: InputBorder.none,
+                )
+              : Column(
+                  children: [
+                    // Search Bar
+                    Padding(
+                      padding: const EdgeInsets.all(20),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(12),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.grey.withOpacity(0.1),
+                              spreadRadius: 1,
+                              blurRadius: 5,
+                            ),
+                          ],
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.search, color: Colors.grey),
+                            const SizedBox(width: 10),
+                            const Expanded(
+                              child: TextField(
+                                decoration: InputDecoration(
+                                  hintText: 'Search factory...',
+                                  hintStyle: TextStyle(color: Colors.grey),
+                                  border: InputBorder.none,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
-                  ),
-                ],
-              ),
-            ),
-          ),
 
-          // List Pabrik
-          Expanded(
-            child: ListView.builder(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              itemCount: factories.length,
-              itemBuilder: (context, index) {
-                final factory = factories[index];
-                return _buildFactoryCard(
-                  factory['name'],
-                  factory['location'],
-                  factory['health'],
-                );
-              },
-            ),
-          ),
-        ],
-      ),
-
-      // Floating Action Button (+ Add Factory)
+                    // List Pabrik
+                    Expanded(
+                      child: _factories.isEmpty
+                          ? const Center(
+                              child: Text('Belum ada factory',
+                                  style: TextStyle(color: Colors.grey)),
+                            )
+                          : ListView.builder(
+                              padding: const EdgeInsets.symmetric(horizontal: 20),
+                              itemCount: _factories.length,
+                              itemBuilder: (context, index) {
+                                final f = _factories[index];
+                                final name = f['nama_factory']?.toString() ?? 'Unknown';
+                                final loc = f['lokasi_factory']?.toString() ?? '-';
+                                final health = _toInt(f['health_factory']);
+                                return _buildFactoryCard(
+                                  name,
+                                  loc,
+                                  health,
+                                  _toInt(f['id_factory']),
+                                );
+                              },
+                            ),
+                    ),
+                  ],
+                ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () {
-          // Nanti kita buat fungsi add factory
-        },
+        onPressed: _showAddFactoryDialog,
         backgroundColor: const Color(0xFF2196F3),
         icon: const Icon(Icons.add, color: Colors.white),
         label: const Text(
@@ -106,19 +158,15 @@ class _FactoryListScreenState extends State<FactoryListScreen> {
         ),
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
-
-      // Bottom Navigation Bar
       bottomNavigationBar: _buildBottomNavigationBar(),
     );
   }
 
-  Widget _buildFactoryCard(String name, String location, int health) {
-    // Tentukan warna berdasarkan health
+  Widget _buildFactoryCard(String name, String location, int health, int factoryId) {
     Color healthColor = health >= 90
         ? Colors.green
         : (health >= 70 ? Colors.orange : Colors.red);
 
-    // <-- Bungkus dengan GestureDetector agar bisa diklik
     return GestureDetector(
       onTap: () {
         Navigator.push(
@@ -126,7 +174,7 @@ class _FactoryListScreenState extends State<FactoryListScreen> {
           MaterialPageRoute(
             builder: (context) => StationListScreen(
               factoryName: name,
-              factoryId: 1, // Atau ambil dari data jika ada
+              factoryId: factoryId,
             ),
           ),
         );
@@ -148,7 +196,6 @@ class _FactoryListScreenState extends State<FactoryListScreen> {
         ),
         child: Row(
           children: [
-            // Icon Pabrik
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
@@ -162,8 +209,6 @@ class _FactoryListScreenState extends State<FactoryListScreen> {
               ),
             ),
             const SizedBox(width: 15),
-
-            // Nama & Lokasi
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -184,8 +229,6 @@ class _FactoryListScreenState extends State<FactoryListScreen> {
                 ],
               ),
             ),
-
-            // Health Status & Arrow
             Column(
               crossAxisAlignment: CrossAxisAlignment.end,
               children: [
@@ -208,7 +251,106 @@ class _FactoryListScreenState extends State<FactoryListScreen> {
           ],
         ),
       ),
-    ); // <-- Tutup GestureDetector
+    );
+  }
+
+  // ✅ Dialog tambah factory → auto-buat station + machine "Loading Ramp"
+  void _showAddFactoryDialog() {
+    final nameCtl = TextEditingController();
+    final locCtl = TextEditingController();
+    final formKey = GlobalKey<FormState>();
+    bool isSaving = false;
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setSt) => AlertDialog(
+          title: const Text('Tambah Factory'),
+          content: Form(
+            key: formKey,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextFormField(
+                  controller: nameCtl,
+                  decoration: const InputDecoration(
+                    labelText: 'Nama Factory',
+                    border: OutlineInputBorder(),
+                  ),
+                  validator: (v) =>
+                      v == null || v.trim().isEmpty ? 'Wajib diisi' : null,
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: locCtl,
+                  decoration: const InputDecoration(
+                    labelText: 'Lokasi (opsional)',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Batal'),
+            ),
+            ElevatedButton(
+              onPressed: isSaving
+                  ? null
+                  : () async {
+                      if (!formKey.currentState!.validate()) return;
+                      setSt(() => isSaving = true);
+                      try {
+                        // 1️⃣ Factory
+                        final factory = await ApiServices.createFactory(
+                          namaFactory: nameCtl.text.trim(),
+                          lokasiFactory: locCtl.text.trim(),
+                        );
+                        final factoryId = _toInt(factory['id_factory']);
+                        // 2️⃣ Station default
+                        final station = await ApiServices.createStation(
+                          factoryId: factoryId,
+                          namaStation: 'Main Station',
+                        );
+                        final stationId = _toInt(station['id_station']);
+                        // 3️⃣ Machine "Loading Ramp" (kosong, komponen auto)
+                        await ApiServices.createMachine(
+                          stationId: stationId,
+                          kodeMesin: 'LR-001',
+                          namaMesin: 'Loading Ramp',
+                        );
+                        if (mounted) Navigator.pop(ctx);
+                        _loadFactories();
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Factory + Loading Ramp berhasil dibuat'),
+                            backgroundColor: Colors.green,
+                          ),
+                        );
+                      } catch (e) {
+                        setSt(() => isSaving = false);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('Gagal: $e'),
+                            backgroundColor: Colors.red,
+                          ),
+                        );
+                      }
+                    },
+              child: isSaving
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                    )
+                  : const Text('Simpan'),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   Widget _buildBottomNavigationBar() {
@@ -257,7 +399,6 @@ class _FactoryListScreenState extends State<FactoryListScreen> {
     if (index == 0) {
       Navigator.pushNamed(context, '/dashboard');
     } else if (index == 1) {
-      // ✅ Tab Station → Submitted Data
       Navigator.pushNamed(context, '/submitted_data');
     }
   }

@@ -600,6 +600,36 @@ class ApiServices {
     }
   }
 
+  // Update inspeksi (PUT) - staff & admin
+  static Future<Map<String, dynamic>> updateInspection({
+    required int machineId,
+    required int serviceId,
+    required String tanggalInspeksi,
+    required String pic,
+    String? keterangan,
+    required List<Map<String, dynamic>> komponenConditions,
+  }) async {
+    final headers = await _getHeaders();
+    final response = await http.put(
+      Uri.parse('$baseUrl/machines/$machineId/inspection/$serviceId'),
+      headers: headers,
+      body: json.encode({
+        'tanggal_inspeksi': tanggalInspeksi,
+        'pic': pic,
+        'keterangan': keterangan,
+        'komponen_conditions': komponenConditions,
+      }),
+    );
+    if (response.statusCode == 200 || response.statusCode == 201) {
+      dynamic decoded = json.decode(response.body);
+      return _extractData(decoded) as Map<String, dynamic>;
+    } else {
+      dynamic decoded = json.decode(response.body);
+      String message = decoded['message'] ?? 'Gagal mengupdate inspeksi';
+      throw Exception(message);
+    }
+  }
+
   // Get detail inspeksi (service_history + komponen readings)
   static Future<Map<String, dynamic>> getInspectionDetail({
     required int machineId,

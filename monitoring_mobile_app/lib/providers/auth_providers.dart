@@ -31,4 +31,22 @@ class AuthHelper {
 
   // Hanya admin yang kelola factory & station.
   static Future<bool> canManageFactoryStation() async => await isAdmin();
+
+  // Semua role login boleh menambah lori (teknisi utama input lori + inspeksi).
+  static Future<bool> canAddLori() async {
+    final r = await getCurrentRole();
+    return r == 'admin' || r == 'staff' || r == 'teknisi';
+  }
+
+  // Hapus lori: staff & admin. Teknisi tidak.
+  static Future<bool> canDeleteLori() async {
+    final r = await getCurrentRole();
+    return r == 'admin' || r == 'staff';
+  }
+
+  // Edit inspeksi: keistimewaan staff (+admin). Teknisi tidak boleh edit.
+  static Future<bool> canEditInspection() async {
+    final r = await getCurrentRole();
+    return r == 'admin' || r == 'staff';
+  }
 }

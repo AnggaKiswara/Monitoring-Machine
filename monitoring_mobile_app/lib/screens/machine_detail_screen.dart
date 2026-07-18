@@ -8,6 +8,8 @@ import '../services/api_services.dart';
 import '../app_notify.dart';
 import 'lori_detail_screen.dart';
 import 'inspection_history_detail_screen.dart';
+import 'inspection_edit_screen.dart';
+import '../providers/auth_providers.dart';
 
 class MachineDetailScreen extends StatefulWidget {
   final String machineName;
@@ -55,6 +57,7 @@ class _MachineDetailScreenState extends State<MachineDetailScreen>
   // History data
   List<Map<String, dynamic>> _inspectionHistory = [];
   bool _loadingHistory = false;
+  bool _canEdit = false;
 
   // ✅ TAMBAHAN: Controller dan State untuk Form Inspeksi
   final _inspectionPicController = TextEditingController();
@@ -84,6 +87,9 @@ class _MachineDetailScreenState extends State<MachineDetailScreen>
     _tabController = TabController(length: 2, vsync: this);
     _loadData();
     _loadDraft(); // Load auto-save draft
+    AuthHelper.canEditInspection().then((v) {
+      if (mounted) setState(() => _canEdit = v);
+    });
   }
 
   Future<void> _loadData() async {
@@ -1154,6 +1160,32 @@ class _MachineDetailScreenState extends State<MachineDetailScreen>
                 Row(
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
+                    if (_canEdit)
+                      TextButton.icon(
+                        onPressed: () {
+                          final serviceId = _toInt(item['id']);
+                          if (serviceId > 0) {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => InspectionEditScreen(
+                                  machineId: widget.machineId,
+                                  serviceId: serviceId,
+                                  machineName: widget.machineName,
+                                ),
+                              ),
+                            );
+                          }
+                        },
+                        icon: const Icon(Icons.edit, size: 14),
+                        label: const Text('Edit'),
+                        style: TextButton.styleFrom(
+                          foregroundColor: const Color(0xFF2196F3),
+                          padding: EdgeInsets.zero,
+                          visualDensity: VisualDensity.compact,
+                        ),
+                      ),
+                    if (_canEdit) const SizedBox(width: 12),
                     Text(
                       'Lihat Detail',
                       style: TextStyle(

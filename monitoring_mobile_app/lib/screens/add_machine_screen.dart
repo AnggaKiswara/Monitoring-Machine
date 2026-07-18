@@ -26,11 +26,11 @@ class _AddMachineScreenState extends State<AddMachineScreen> {
   @override
   void initState() {
     super.initState();
-    // Defense: hanya admin & staff yang boleh tambah lori
-    AuthHelper.canManageLori().then((allowed) {
+    // Defense: hanya user login (teknisi/staff/admin) yang boleh tambah lori
+    AuthHelper.canAddLori().then((allowed) {
       if (!allowed && mounted) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
-          AppNotify.error(context, 'Hanya admin/staff yang boleh menambah lori');
+          AppNotify.error(context, 'Anda tidak diizinkan menambah lori');
           Navigator.pop(context);
         });
       }

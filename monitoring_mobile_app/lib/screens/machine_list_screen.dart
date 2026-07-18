@@ -42,7 +42,8 @@ class _MachineListScreenState extends State<MachineListScreen> {
     return 0;
   }
 
-  bool _canManageLori = false;
+  bool _canAddLori = false;
+  bool _canDeleteLori = false;
 
   @override
   void initState() {
@@ -52,7 +53,8 @@ class _MachineListScreenState extends State<MachineListScreen> {
   }
 
   Future<void> _initRole() async {
-    _canManageLori = await AuthHelper.canManageLori();
+    _canAddLori = await AuthHelper.canAddLori();
+    _canDeleteLori = await AuthHelper.canDeleteLori();
     if (mounted) setState(() {});
   }
 
@@ -233,7 +235,7 @@ class _MachineListScreenState extends State<MachineListScreen> {
                 const SizedBox(height: 12),
               ],
             ),
-      floatingActionButton: _canManageLori
+      floatingActionButton: _canAddLori
           ? FloatingActionButton.extended(
               onPressed: () async {
                 final result = await Navigator.push(
@@ -371,7 +373,7 @@ class _MachineListScreenState extends State<MachineListScreen> {
             ),
             const SizedBox(width: 8),
             // Tombol hapus (admin & staff)
-            if (_canManageLori)
+            if (_canDeleteLori)
               IconButton(
                 icon: const Icon(Icons.delete_outline, color: Colors.red),
                 tooltip: 'Hapus lori',

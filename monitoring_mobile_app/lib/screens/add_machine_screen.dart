@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../services/api_services.dart';
 import '../app_notify.dart';
+import '../providers/auth_providers.dart';
 
 class AddMachineScreen extends StatefulWidget {
   final int stationId;
@@ -21,6 +22,20 @@ class _AddMachineScreenState extends State<AddMachineScreen> {
   final _namaController = TextEditingController();
   final _kodeController = TextEditingController(); // ✅ TAMBAHKAN INI
   bool _isLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // Defense: hanya admin & staff yang boleh tambah lori
+    AuthHelper.canManageLori().then((allowed) {
+      if (!allowed && mounted) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          AppNotify.error(context, 'Hanya admin/staff yang boleh menambah lori');
+          Navigator.pop(context);
+        });
+      }
+    });
+  }
 
   Future<void> _saveMachine() async {
     if (!_formKey.currentState!.validate()) return;

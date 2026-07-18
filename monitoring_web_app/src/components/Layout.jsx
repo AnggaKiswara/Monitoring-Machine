@@ -1,16 +1,28 @@
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
+import {
+  LayoutDashboard,
+  Factory,
+  Building2,
+  Truck,
+  ClipboardList,
+  Printer,
+  AlertTriangle,
+  Settings,
+  Users,
+  LogOut,
+} from 'lucide-react';
 
 const NAV = [
-  { to: '/', label: 'Dashboard', icon: '▦', end: true },
-  { to: '/factories', label: 'Pabrik', icon: '🏭' },
-  { to: '/stations', label: 'Station', icon: '🏬' },
-  { to: '/machines', label: 'Machine (Lori)', icon: '🚛' },
-  { to: '/inspections', label: 'Riwayat Inspeksi', icon: '📋' },
-  { to: '/reports', label: 'Laporan', icon: '🖨' },
-  { to: '/alerts', label: 'Alert', icon: '⚠' },
-  { to: '/alert-rules', label: 'Aturan Alert', icon: '⚙' },
-  { to: '/users', label: 'User', icon: '👤' },
+  { to: '/', label: 'Dashboard', icon: LayoutDashboard, end: true },
+  { to: '/factories', label: 'Pabrik', icon: Factory },
+  { to: '/stations', label: 'Station', icon: Building2 },
+  { to: '/machines', label: 'Machine (Lori)', icon: Truck },
+  { to: '/inspections', label: 'Riwayat Inspeksi', icon: ClipboardList },
+  { to: '/reports', label: 'Laporan', icon: Printer },
+  { to: '/alerts', label: 'Alert', icon: AlertTriangle },
+  { to: '/alert-rules', label: 'Aturan Alert', icon: Settings },
+  { to: '/users', label: 'User', icon: Users },
 ];
 
 export function Layout({ children }) {
@@ -21,6 +33,11 @@ export function Layout({ children }) {
     logout();
     navigate('/login');
   }
+
+  const Icon = ({ I, active }) => {
+    const C = I;
+    return <C size={18} className={active ? 'text-white' : 'text-indigo-500'} />;
+  };
 
   return (
     <div className="flex min-h-screen relative overflow-hidden">
@@ -52,8 +69,12 @@ export function Layout({ children }) {
                 }`
               }
             >
-              <span>{n.icon}</span>
-              {n.label}
+              {({ isActive }) => (
+                <>
+                  <Icon I={n.icon} active={isActive} />
+                  {n.label}
+                </>
+              )}
             </NavLink>
           ))}
         </nav>
@@ -63,9 +84,9 @@ export function Layout({ children }) {
           </p>
           <button
             onClick={handleLogout}
-            className="w-full px-3 py-2 rounded-xl bg-white/40 hover:bg-white/60 text-sm font-medium backdrop-blur transition"
+            className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-xl bg-white/40 hover:bg-white/60 text-sm font-medium backdrop-blur transition"
           >
-            Logout
+            <LogOut size={16} className="text-indigo-500" /> Logout
           </button>
         </div>
       </aside>

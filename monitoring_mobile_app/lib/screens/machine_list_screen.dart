@@ -3,6 +3,7 @@ import '../services/api_services.dart';
 import '../app_notify.dart';
 import 'machine_detail_screen.dart';
 import 'add_machine_screen.dart';
+import '../providers/auth_providers.dart';
 
 class MachineListScreen extends StatefulWidget {
   final String stationName;
@@ -41,10 +42,21 @@ class _MachineListScreenState extends State<MachineListScreen> {
     return 0;
   }
 
+  List<dynamic> _loriList = [];
+  bool _loading = true;
+  String? _error;
+  bool _canManageLori = false;
+
   @override
   void initState() {
     super.initState();
+    _initRole();
     _loadLoriList();
+  }
+
+  Future<void> _initRole() async {
+    _canManageLori = await AuthHelper.canManageLori();
+    if (mounted) setState(() {});
   }
 
   Future<void> _loadLoriList() async {
@@ -224,29 +236,31 @@ class _MachineListScreenState extends State<MachineListScreen> {
                 const SizedBox(height: 12),
               ],
             ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () async {
-          final result = await Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => AddMachineScreen(
-                stationId: widget.stationId,
-                stationName: widget.stationName,
-              ),
-            ),
-          );
+      floatingActionButton: _canManageLori
+          ? FloatingActionButton.extended(
+              onPressed: () async {
+                final result = await Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => AddMachineScreen(
+                      stationId: widget.stationId,
+                      stationName: widget.stationName,
+                    ),
+                  ),
+                );
 
-          if (result == true) {
-            _loadLoriList();
-          }
-        },
-        backgroundColor: const Color(0xFF2196F3),
-        icon: const Icon(Icons.add, color: Colors.white),
-        label: const Text(
-          'Tambah Lori',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-        ),
-      ),
+                if (result == true) {
+                  _loadLoriList();
+                }
+              },
+              backgroundColor: const Color(0xFF2196F3),
+              icon: const Icon(Icons.add, color: Colors.white),
+              label: const Text(
+                'Tambah Lori',
+                style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+              ),
+            )
+          : null,
     );
   }
 
@@ -359,14 +373,15 @@ class _MachineListScreenState extends State<MachineListScreen> {
               ),
             ),
             const SizedBox(width: 8),
-            // Tombol hapus
-            IconButton(
-              icon: const Icon(Icons.delete_outline, color: Colors.red),
-              tooltip: 'Hapus lori',
-              constraints: const BoxConstraints(),
-              padding: const EdgeInsets.all(6),
-              onPressed: () => _confirmDeleteLori(machineId, name),
-            ),
+            // Tombol hapus (admin & staff)
+            if (_canManageLori)
+              IconButton(
+                icon: const Icon(Icons.delete_outline, color: Colors.red),
+                tooltip: 'Hapus lori',
+                constraints: const BoxConstraints(),
+                padding: const EdgeInsets.all(6),
+                onPressed: () => _confirmDeleteLori(machineId, name),
+              ),
           ],
         ),
       ),

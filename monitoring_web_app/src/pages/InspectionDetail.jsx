@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
 import { API } from '../lib/api';
 import { Card, Button } from '../components/ui';
+import { Pencil, Trash2 } from 'lucide-react';
 import { useToast } from '../components/Toast';
 
 const ORIGIN = 'http://103.93.135.108:3000';
@@ -55,10 +56,10 @@ export default function InspectionDetail() {
         <h1 className="text-2xl font-extrabold text-navy">Detail Inspeksi #{serviceId}</h1>
         <div className="flex gap-2 no-print">
           <Button variant="outline" onClick={() => navigate(`/inspections/${machineId}/${serviceId}/edit`)}>
-            Edit
+            <Pencil size={16} /> Edit
           </Button>
           <Button variant="danger" onClick={handleDelete}>
-            Hapus
+            <Trash2 size={16} /> Hapus
           </Button>
         </div>
       </div>

@@ -5,6 +5,7 @@ import '../services/api_services.dart';
 import 'station_list_screen.dart';
 import 'global_history_screen.dart';
 import 'factory_list_screen.dart';
+import '../providers/auth_providers.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -16,9 +17,11 @@ class DashboardScreen extends StatefulWidget {
 class _DashboardScreenState extends State<DashboardScreen> {
   int _selectedIndex = 0;
   String _userName = 'User';
+  String _userRole = '';
   List<dynamic> _factories = [];
   bool _loading = true;
   String? _error;
+  bool _canManageFactory = false;
 
   @override
   void initState() {
@@ -35,8 +38,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
         final data = json.decode(userData);
         setState(() {
           _userName = data['nama_lengkap'] ?? data['username'] ?? 'User';
+          _userRole = (data['role_user'] ?? '').toString().toUpperCase();
         });
       }
+      _canManageFactory = await AuthHelper.canManageFactoryStation();
     } catch (e) {
       print('Error loading user data: $e');
     }
@@ -82,6 +87,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
               'Welcome, $_userName',
               style: TextStyle(fontSize: 14, color: Colors.grey[600]),
             ),
+            if (_userRole.isNotEmpty)
+              Text(
+                _userRole,
+                style: TextStyle(
+                  fontSize: 11,
+                  color: const Color(0xFF2196F3),
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
           ],
         ),
         actions: [
@@ -193,22 +207,24 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ),
               ],
             ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => const FactoryListScreen(),
-            ),
-          );
-        },
-        backgroundColor: const Color(0xFF2196F3),
-        icon: const Icon(Icons.add, color: Colors.white),
-        label: const Text(
-          'Add Factory',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-        ),
-      ),
+      floatingActionButton: _canManageFactory
+          ? FloatingActionButton.extended(
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const FactoryListScreen(),
+                  ),
+                );
+              },
+              backgroundColor: const Color(0xFF2196F3),
+              icon: const Icon(Icons.add, color: Colors.white),
+              label: const Text(
+                'Add Factory',
+                style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+              ),
+            )
+          : null,
       floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
       bottomNavigationBar: _buildBottomNavigationBar(),
     );

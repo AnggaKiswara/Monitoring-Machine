@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../services/api_services.dart';
 import '../app_notify.dart';
 import 'machine_list_screen.dart';
+import '../providers/auth_providers.dart';
 
 class StationListScreen extends StatefulWidget {
   final String factoryName;
@@ -22,11 +23,18 @@ class _StationListScreenState extends State<StationListScreen> {
   List<dynamic> _stations = [];
   bool _loading = true;
   String? _error;
+  bool _canManage = false;
 
   @override
   void initState() {
     super.initState();
+    _initRole();
     _loadStations();
+  }
+
+  Future<void> _initRole() async {
+    _canManage = await AuthHelper.canManageFactoryStation();
+    if (mounted) setState(() {});
   }
 
   Future<void> _loadStations() async {
@@ -354,13 +362,14 @@ class _StationListScreenState extends State<StationListScreen> {
                 ),
               ),
             ),
-            IconButton(
-              icon: const Icon(Icons.delete_outline, color: Colors.red),
-              tooltip: 'Hapus station',
-              constraints: const BoxConstraints(),
-              padding: const EdgeInsets.all(6),
-              onPressed: () => _confirmDeleteStation(stationId, name),
-            ),
+            if (_canManage)
+              IconButton(
+                icon: const Icon(Icons.delete_outline, color: Colors.red),
+                tooltip: 'Hapus station',
+                constraints: const BoxConstraints(),
+                padding: const EdgeInsets.all(6),
+                onPressed: () => _confirmDeleteStation(stationId, name),
+              ),
           ],
         ),
       ),

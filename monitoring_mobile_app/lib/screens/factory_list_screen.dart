@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'station_list_screen.dart';
 import '../services/api_services.dart';
 import '../app_notify.dart';
+import '../providers/auth_providers.dart';
 
 class FactoryListScreen extends StatefulWidget {
   const FactoryListScreen({super.key});
@@ -15,11 +16,18 @@ class _FactoryListScreenState extends State<FactoryListScreen> {
   List<dynamic> _factories = [];
   bool _loading = true;
   String? _error;
+  bool _canManage = false;
 
   @override
   void initState() {
     super.initState();
+    _initRole();
     _loadFactories();
+  }
+
+  Future<void> _initRole() async {
+    _canManage = await AuthHelper.canManageFactoryStation();
+    if (mounted) setState(() {});
   }
 
   Future<void> _loadFactories() async {
@@ -149,15 +157,17 @@ class _FactoryListScreenState extends State<FactoryListScreen> {
                     ),
                   ],
                 ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _showAddFactoryDialog,
-        backgroundColor: const Color(0xFF2196F3),
-        icon: const Icon(Icons.add, color: Colors.white),
-        label: const Text(
-          'Add Factory',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-        ),
-      ),
+      floatingActionButton: _canManage
+          ? FloatingActionButton.extended(
+              onPressed: _showAddFactoryDialog,
+              backgroundColor: const Color(0xFF2196F3),
+              icon: const Icon(Icons.add, color: Colors.white),
+              label: const Text(
+                'Add Factory',
+                style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+              ),
+            )
+          : null,
       floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
       bottomNavigationBar: _buildBottomNavigationBar(),
     );
@@ -249,13 +259,14 @@ class _FactoryListScreenState extends State<FactoryListScreen> {
               ),
             ),
             const SizedBox(width: 8),
-            IconButton(
-              icon: const Icon(Icons.delete_outline, color: Colors.red),
-              tooltip: 'Hapus factory',
-              constraints: const BoxConstraints(),
-              padding: const EdgeInsets.all(6),
-              onPressed: () => _confirmDeleteFactory(factoryId, name),
-            ),
+            if (_canManage)
+              IconButton(
+                icon: const Icon(Icons.delete_outline, color: Colors.red),
+                tooltip: 'Hapus factory',
+                constraints: const BoxConstraints(),
+                padding: const EdgeInsets.all(6),
+                onPressed: () => _confirmDeleteFactory(factoryId, name),
+              ),
             const Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey),
           ],
         ),

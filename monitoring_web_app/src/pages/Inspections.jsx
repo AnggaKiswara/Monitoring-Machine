@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
 import { API } from '../lib/api';
 import { Card, HealthBadge, Button } from '../components/ui';
+import { Printer } from 'lucide-react';
 import { useToast } from '../components/Toast';
 
 export default function Inspections() {
@@ -45,7 +46,7 @@ export default function Inspections() {
           <p className="text-indigo-500 text-sm">Semua inspeksi dari seluruh pabrik</p>
         </div>
         <Button variant="outline" onClick={() => navigate('/reports')}>
-          🖨 Laporan
+          <Printer size={16} /> Laporan
         </Button>
       </div>
 

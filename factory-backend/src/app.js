@@ -30,6 +30,16 @@ app.use(morgan(process.env.NODE_ENV === "production" ? "combined" : "dev"));
 // Serve static files (foto inspeksi)
 app.use("/uploads", express.static(path.join(__dirname, "..", "uploads")));
 
+// Pastikan folder upload ada (auto-create saat startup)
+const fs = require("fs");
+const uploadsDir = path.join(__dirname, "..", "uploads", "inspections");
+try {
+  fs.mkdirSync(uploadsDir, { recursive: true });
+  console.log("Uploads folder ready:", uploadsDir);
+} catch (e) {
+  console.error("Gagal membuat folder uploads:", e.message);
+}
+
 // Health check
 app.get("/health", (req, res) => res.json({ success: true, message: "API is running" }));
 

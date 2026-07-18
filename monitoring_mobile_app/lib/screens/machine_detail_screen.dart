@@ -367,12 +367,27 @@ class _MachineDetailScreenState extends State<MachineDetailScreen>
         try {
           await ApiServices.uploadInspectionPhotos(
             machineId: widget.machineId,
-            serviceId: serviceId,
+            serviceId: serviceId is int ? serviceId : int.parse(serviceId.toString()),
             photos: _photos,
           );
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('${_photos.length} foto berhasil diupload'),
+                backgroundColor: Colors.green,
+              ),
+            );
+          }
         } catch (photoErr) {
-          // Foto gagal, tapi inspeksi sudah tersimpan → tetap lanjut
-          debugPrint('Upload foto gagal: $photoErr');
+          // Foto gagal, tapi inspeksi sudah tersimpan → kasih tahu user
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Inspeksi tersimpan, tapi foto GAGAL: $photoErr'),
+                backgroundColor: Colors.red,
+              ),
+            );
+          }
         }
       }
 

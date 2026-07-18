@@ -214,19 +214,13 @@ class _MachineListScreenState extends State<MachineListScreen> {
                             return _buildLoriCard(
                               index + 1,
                               lori['nama_mesin'] ?? 'Lori Unknown',
-                              _toDouble(lori['health_mesin']), // ✅ Pakai helper
-                              _toInt(lori['id_mesin']), // ✅ Pakai helper
+                              _toDouble(lori['health_mesin']),
+                              _toInt(lori['id_mesin']),
                             );
                           },
                         ),
                 ),
-                Padding(
-                  padding: const EdgeInsets.all(20),
-                  child: Text(
-                    'Terakhir Diperbarui: ${DateTime.now().toString().substring(0, 16)}',
-                    style: TextStyle(color: Colors.grey[500], fontSize: 12),
-                  ),
-                ),
+                const SizedBox(height: 12),
               ],
             ),
       floatingActionButton: FloatingActionButton.extended(
@@ -259,7 +253,6 @@ class _MachineListScreenState extends State<MachineListScreen> {
     int healthInt = health.toInt();
     Color color = _getColor(healthInt);
 
-    // ✅ Cari data lori lengkap
     final lori = _loriList.firstWhere(
       (l) => _toInt(l['id_mesin']) == machineId,
       orElse: () => {},
@@ -280,37 +273,49 @@ class _MachineListScreenState extends State<MachineListScreen> {
             ),
           ),
         );
-        // Refresh list saat kembali dari detail (setelah inspeksi, health berubah)
         _loadLoriList();
       },
       child: Container(
         margin: const EdgeInsets.only(bottom: 12),
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Colors.blue, width: 2),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Colors.grey.shade200),
           boxShadow: [
             BoxShadow(
-              color: Colors.grey.withOpacity(0.05),
+              color: Colors.grey.withOpacity(0.08),
               spreadRadius: 1,
-              blurRadius: 5,
+              blurRadius: 8,
+              offset: const Offset(0, 2),
             ),
           ],
         ),
         child: Row(
           children: [
-            Text(
-              '$number.',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-                color: Colors.grey[600],
+            // Nomor urut
+            Container(
+              width: 26,
+              height: 26,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: const Color(0xFF1a2332).withOpacity(0.08),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                '$number',
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF1a2332),
+                ),
               ),
             ),
-            const SizedBox(width: 15),
-            const Icon(Icons.directions_railway, color: Color(0xFF1a2332)),
-            const SizedBox(width: 15),
+            const SizedBox(width: 12),
+            // Icon lori (truk)
+            Icon(Icons.local_shipping, color: const Color(0xFF1a2332), size: 22),
+            const SizedBox(width: 12),
+            // Nama + kode
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -320,37 +325,46 @@ class _MachineListScreenState extends State<MachineListScreen> {
                     style: const TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w600,
+                      color: Colors.black87,
                     ),
                   ),
                   if (lori.isNotEmpty &&
                       lori['kode_mesin'] != null &&
                       lori['kode_mesin'].toString().isNotEmpty)
-                    Text(
-                      'Kode: ${lori['kode_mesin']}',
-                      style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                    Padding(
+                      padding: const EdgeInsets.only(top: 2),
+                      child: Text(
+                        'Kode: ${lori['kode_mesin']}',
+                        style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                      ),
                     ),
                 ],
               ),
             ),
-            Text(
-              '$healthInt%',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-                color: color,
+            // Health badge
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.12),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Text(
+                '$healthInt%',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                  color: color,
+                ),
               ),
             ),
             const SizedBox(width: 8),
+            // Tombol hapus
             IconButton(
               icon: const Icon(Icons.delete_outline, color: Colors.red),
               tooltip: 'Hapus lori',
+              constraints: const BoxConstraints(),
+              padding: const EdgeInsets.all(6),
               onPressed: () => _confirmDeleteLori(machineId, name),
-            ),
-            const SizedBox(width: 10),
-            Container(
-              width: 10,
-              height: 10,
-              decoration: BoxDecoration(shape: BoxShape.circle, color: color),
             ),
           ],
         ),

@@ -29,6 +29,7 @@ export default function InspectionEdit() {
         const d = res?.data ?? res;
         setTanggal(d.service_date || '');
         setKeterangan(d.description || '');
+        setPic(d.pic_name || '');
         setKomponen(
           (d.komponen || []).map((c) => ({
             id_komponen: c.id_komponen,

@@ -71,8 +71,9 @@ export default function InspectionDetail() {
           <h3 className="font-bold text-navy mb-3">Informasi</h3>
           <Row label="Pabrik" value={detail.nama_factory} />
           <Row label="Station" value={detail.nama_station} />
-          <Row label="Lori" value={detail.nama_lori} />
+          <Row label="Lori" value={detail.nama_lori + (detail.kode_mesin ? ` (${detail.kode_mesin})` : '')} />
           <Row label="Teknisi" value={detail.teknisi_name} />
+          <Row label="PIC" value={detail.pic_name} />
           <Row label="Health Before" value={detail.health_mesin_before} />
           <Row label="Health After" value={detail.health_mesin_after} />
           <Row label="Keterangan" value={detail.description} />

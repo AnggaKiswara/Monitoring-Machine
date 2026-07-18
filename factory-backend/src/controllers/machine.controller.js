@@ -28,7 +28,7 @@ const upload = multer({
 });
 
 // Export multer middleware agar bisa dipakai di routes
-module.exports.uploadMiddleware = upload.array("photos", 10); // max 10 foto
+const uploadMiddleware = upload.array("photos", 10); // max 10 foto
 
 // Simpan hasil crudFactory ke variable
 const crud = crudFactory("machine", "id_mesin");
@@ -39,6 +39,7 @@ module.exports = {
   getOne: crud.getOne,
   update: crud.update,
   remove: crud.remove,
+  uploadMiddleware, // ← dipakai di machine.routes.js (upload foto inspeksi)
 };
 
 // Template komponen default untuk setiap Lori baru

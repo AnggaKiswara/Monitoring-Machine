@@ -33,22 +33,22 @@ app.use("/uploads", express.static(path.join(__dirname, "..", "uploads")));
 // Health check
 app.get("/health", (req, res) => res.json({ success: true, message: "API is running" }));
 
-// Test koneksi database
-app.get("/test-db", (req, res) => {
-  db.query("SELECT 1 + 1 AS result", (err, results) => {
-    if (err) {
-      return res.status(500).json({
-        success: false,
-        message: "Gagal koneksi database",
-        error: err.message,
-      });
-    }
+// Test koneksi database (mysql2/promise -> pakai async/await)
+app.get("/test-db", async (req, res) => {
+  try {
+    const [results] = await db.query("SELECT 1 + 1 AS result");
     res.json({
       success: true,
       message: "Berhasil koneksi database",
       result: results[0],
     });
-  });
+  } catch (err) {
+    res.status(500).json({
+      success: false,
+      message: "Gagal koneksi database",
+      error: err.message,
+    });
+  }
 });
 
 // Routes

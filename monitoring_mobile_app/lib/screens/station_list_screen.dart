@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/api_services.dart';
+import '../app_notify.dart';
 import 'machine_list_screen.dart';
 
 class StationListScreen extends StatefulWidget {
@@ -281,21 +282,22 @@ class _StationListScreenState extends State<StationListScreen> {
           context,
           MaterialPageRoute(
             builder: (context) =>
-                MachineListScreen(stationName: name, stationId: 1),
+                MachineListScreen(stationName: name, stationId: stationId),
           ),
         );
       },
       child: Container(
         margin: const EdgeInsets.only(bottom: 12),
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(15),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Colors.grey.shade200),
           boxShadow: [
             BoxShadow(
-              color: Colors.grey.withOpacity(0.05),
+              color: Colors.grey.withOpacity(0.08),
               spreadRadius: 1,
-              blurRadius: 5,
+              blurRadius: 8,
               offset: const Offset(0, 2),
             ),
           ],
@@ -310,7 +312,7 @@ class _StationListScreenState extends State<StationListScreen> {
               ),
               child: Icon(icon, color: const Color(0xFF1a2332), size: 24),
             ),
-            const SizedBox(width: 15),
+            const SizedBox(width: 14),
             Expanded(
               child: Text(
                 name,
@@ -321,42 +323,43 @@ class _StationListScreenState extends State<StationListScreen> {
                 ),
               ),
             ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: healthColor.withOpacity(0.12),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Text(
+                '$healthInt%',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.bold,
+                  color: healthColor,
+                ),
+              ),
+            ),
+            const SizedBox(width: 6),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(
+                color: healthColor.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                status,
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w600,
+                  color: healthColor,
+                ),
+              ),
+            ),
             IconButton(
               icon: const Icon(Icons.delete_outline, color: Colors.red),
               tooltip: 'Hapus station',
+              constraints: const BoxConstraints(),
+              padding: const EdgeInsets.all(6),
               onPressed: () => _confirmDeleteStation(stationId, name),
-            ),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                Text(
-                  '$healthInt%',
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    color: healthColor,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 2,
-                  ),
-                  decoration: BoxDecoration(
-                    color: healthColor.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(
-                    status,
-                    style: TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.w600,
-                      color: healthColor,
-                    ),
-                  ),
-                ),
-              ],
             ),
           ],
         ),
@@ -441,22 +444,12 @@ class _StationListScreenState extends State<StationListScreen> {
               try {
                 await ApiServices.deleteStation(stationId: stationId);
                 if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('Station "$name" dihapus'),
-                      backgroundColor: Colors.green,
-                    ),
-                  );
+                  AppNotify.success(context, 'Station "$name" dihapus');
                   _loadStations();
                 }
               } catch (e) {
                 if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('Gagal: $e'),
-                      backgroundColor: Colors.red,
-                    ),
-                  );
+                  AppNotify.error(context, 'Gagal: $e');
                 }
               }
             },

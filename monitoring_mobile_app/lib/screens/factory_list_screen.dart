@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'station_list_screen.dart';
 import '../services/api_services.dart';
+import '../app_notify.dart';
 
 class FactoryListScreen extends StatefulWidget {
   const FactoryListScreen({super.key});
@@ -180,16 +181,17 @@ class _FactoryListScreenState extends State<FactoryListScreen> {
         );
       },
       child: Container(
-        margin: const EdgeInsets.only(bottom: 15),
-        padding: const EdgeInsets.all(16),
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(15),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Colors.grey.shade200),
           boxShadow: [
             BoxShadow(
-              color: Colors.grey.withOpacity(0.05),
+              color: Colors.grey.withOpacity(0.08),
               spreadRadius: 1,
-              blurRadius: 5,
+              blurRadius: 8,
               offset: const Offset(0, 2),
             ),
           ],
@@ -208,7 +210,7 @@ class _FactoryListScreenState extends State<FactoryListScreen> {
                 size: 24,
               ),
             ),
-            const SizedBox(width: 15),
+            const SizedBox(width: 14),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -217,43 +219,44 @@ class _FactoryListScreenState extends State<FactoryListScreen> {
                     name,
                     style: const TextStyle(
                       fontSize: 16,
-                      fontWeight: FontWeight.bold,
+                      fontWeight: FontWeight.w600,
                       color: Color(0xFF1a2332),
                     ),
                   ),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: 3),
                   Text(
                     location,
                     style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ],
               ),
             ),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                Text(
-                  'Health $health%',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                    color: healthColor,
-                  ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: healthColor.withOpacity(0.12),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Text(
+                'Health $health%',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.bold,
+                  color: healthColor,
                 ),
-                const SizedBox(width: 6),
-                IconButton(
-                  icon: const Icon(Icons.delete_outline, color: Colors.red),
-                  tooltip: 'Hapus factory',
-                  onPressed: () => _confirmDeleteFactory(factoryId, name),
-                ),
-                const SizedBox(height: 5),
-                const Icon(
-                  Icons.arrow_forward_ios,
-                  size: 16,
-                  color: Colors.grey,
-                ),
-              ],
+              ),
             ),
+            const SizedBox(width: 8),
+            IconButton(
+              icon: const Icon(Icons.delete_outline, color: Colors.red),
+              tooltip: 'Hapus factory',
+              constraints: const BoxConstraints(),
+              padding: const EdgeInsets.all(6),
+              onPressed: () => _confirmDeleteFactory(factoryId, name),
+            ),
+            const Icon(Icons.arrow_forward_ios, size: 16, color: Colors.grey),
           ],
         ),
       ),
@@ -329,20 +332,11 @@ class _FactoryListScreenState extends State<FactoryListScreen> {
                         );
                         if (mounted) Navigator.pop(ctx);
                         _loadFactories();
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Factory + Loading Ramp berhasil dibuat'),
-                            backgroundColor: Colors.green,
-                          ),
-                        );
+                        AppNotify.success(context,
+                            'Factory + Loading Ramp berhasil dibuat');
                       } catch (e) {
                         setSt(() => isSaving = false);
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text('Gagal: $e'),
-                            backgroundColor: Colors.red,
-                          ),
-                        );
+                        AppNotify.error(context, 'Gagal: $e');
                       }
                     },
               child: isSaving
@@ -429,25 +423,15 @@ class _FactoryListScreenState extends State<FactoryListScreen> {
               Navigator.pop(ctx);
               try {
                 await ApiServices.deleteFactory(factoryId: factoryId);
-                if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('Factory "$name" dihapus'),
-                      backgroundColor: Colors.green,
-                    ),
-                  );
-                  _loadFactories();
+                  if (mounted) {
+                    AppNotify.success(context, 'Factory "$name" dihapus');
+                    _loadFactories();
+                  }
+                } catch (e) {
+                  if (mounted) {
+                    AppNotify.error(context, 'Gagal: $e');
+                  }
                 }
-              } catch (e) {
-                if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('Gagal: $e'),
-                      backgroundColor: Colors.red,
-                    ),
-                  );
-                }
-              }
             },
             child: const Text('Hapus', style: TextStyle(color: Colors.white)),
           ),

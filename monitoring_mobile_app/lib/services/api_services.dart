@@ -629,6 +629,25 @@ class ApiServices {
     }
   }
 
+  // Get global inspection history (semua pabrik) - join factory/station/lori
+  static Future<List<dynamic>> getGlobalHistory({
+    int limit = 50,
+    int offset = 0,
+  }) async {
+    final headers = await _getHeaders();
+    final response = await http.get(
+      Uri.parse('$baseUrl/service-history/global?limit=$limit&offset=$offset'),
+      headers: headers,
+    );
+    if (response.statusCode == 200) {
+      dynamic decoded = json.decode(response.body);
+      return _extractData(decoded) as List<dynamic>;
+    } else {
+      dynamic decoded = json.decode(response.body);
+      throw Exception(decoded['message'] ?? 'Gagal memuat history global');
+    }
+  }
+
   // Upload foto inspeksi (multipart)
   static Future<List<dynamic>> uploadInspectionPhotos({
     required int machineId,

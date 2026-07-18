@@ -5,6 +5,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:image_picker/image_picker.dart';
 import '../services/api_services.dart';
+import '../app_notify.dart';
 import 'lori_detail_screen.dart';
 import 'input_inspection_screen.dart';
 import 'inspection_history_detail_screen.dart';
@@ -249,17 +250,9 @@ class _MachineDetailScreenState extends State<MachineDetailScreen>
         // Show notification jika ada draft
         if (_komponenConditions.isNotEmpty) {
           WidgetsBinding.instance.addPostFrameCallback((_) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(
-                  'Draft ditemukan dari ${DateFormat('dd MMM yyyy HH:mm').format(DateTime.parse(draftData['timestamp']))}',
-                ),
-                action: SnackBarAction(
-                  label: 'Hapus',
-                  onPressed: () => _clearDraft(),
-                ),
-                duration: const Duration(seconds: 5),
-              ),
+            AppNotify.warning(
+              context,
+              'Draft ditemukan dari ${DateFormat('dd MMM yyyy HH:mm').format(DateTime.parse(draftData['timestamp']))}',
             );
           });
         }
@@ -312,22 +305,12 @@ class _MachineDetailScreenState extends State<MachineDetailScreen>
   Future<void> _submitInspection() async {
     // Validasi PIC
     if (_inspectionPicController.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('PIC wajib diisi'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      AppNotify.warning(context, 'PIC wajib diisi');
       return;
     }
 
     if (_komponenConditions.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Pilih kondisi untuk minimal 1 komponen'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      AppNotify.warning(context, 'Pilih kondisi untuk minimal 1 komponen');
       return;
     }
 
@@ -371,21 +354,17 @@ class _MachineDetailScreenState extends State<MachineDetailScreen>
             photos: _photos,
           );
           if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('${_photos.length} foto berhasil diupload'),
-                backgroundColor: Colors.green,
-              ),
+            AppNotify.success(
+              context,
+              '${_photos.length} foto berhasil diupload',
             );
           }
         } catch (photoErr) {
           // Foto gagal, tapi inspeksi sudah tersimpan → kasih tahu user
           if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('Inspeksi tersimpan, tapi foto GAGAL: $photoErr'),
-                backgroundColor: Colors.red,
-              ),
+            AppNotify.error(
+              context,
+              'Inspeksi tersimpan, tapi foto GAGAL: $photoErr',
             );
           }
         }
@@ -396,11 +375,9 @@ class _MachineDetailScreenState extends State<MachineDetailScreen>
 
       if (mounted) {
         final healthAfter = result['health_after'];
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Inspeksi berhasil disimpan! Health: $healthAfter%'),
-            backgroundColor: Colors.green,
-          ),
+        AppNotify.success(
+          context,
+          'Inspeksi berhasil disimpan! Health: $healthAfter%',
         );
 
         // Reset form setelah sukses
@@ -418,9 +395,7 @@ class _MachineDetailScreenState extends State<MachineDetailScreen>
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Gagal: $e'), backgroundColor: Colors.red),
-        );
+        AppNotify.error(context, 'Gagal: $e');
       }
     } finally {
       if (mounted) setState(() => _isSaving = false);

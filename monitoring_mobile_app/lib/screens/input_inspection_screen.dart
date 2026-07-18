@@ -48,7 +48,10 @@ class _InputInspectionScreenState extends State<InputInspectionScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Gagal ambil foto: $e'), backgroundColor: Colors.red),
+          SnackBar(
+            content: Text('Gagal ambil foto: $e'),
+            backgroundColor: Colors.red,
+          ),
         );
       }
     }
@@ -672,8 +675,11 @@ class _InputInspectionScreenState extends State<InputInspectionScreen> {
                         children: [
                           Row(
                             children: [
-                              const Icon(Icons.photo_camera,
-                                  color: Color(0xFF1a2332), size: 20),
+                              const Icon(
+                                Icons.photo_camera,
+                                color: Color(0xFF1a2332),
+                                size: 20,
+                              ),
                               const SizedBox(width: 8),
                               const Text(
                                 'Foto Inspeksi',
@@ -710,8 +716,11 @@ class _InputInspectionScreenState extends State<InputInspectionScreen> {
                                 onTap: _showPhotoSourceSheet,
                                 child: Column(
                                   children: [
-                                    Icon(Icons.add_photo_alternate,
-                                        size: 40, color: Colors.grey[400]),
+                                    Icon(
+                                      Icons.add_photo_alternate,
+                                      size: 40,
+                                      color: Colors.grey[400],
+                                    ),
                                     const SizedBox(height: 8),
                                     Text(
                                       'Tap untuk tambah foto',
@@ -730,10 +739,10 @@ class _InputInspectionScreenState extends State<InputInspectionScreen> {
                               physics: const NeverScrollableScrollPhysics(),
                               gridDelegate:
                                   const SliverGridDelegateWithFixedCrossAxisCount(
-                                crossAxisCount: 3,
-                                crossAxisSpacing: 8,
-                                mainAxisSpacing: 8,
-                              ),
+                                    crossAxisCount: 3,
+                                    crossAxisSpacing: 8,
+                                    mainAxisSpacing: 8,
+                                  ),
                               itemCount: _photos.length,
                               itemBuilder: (ctx, i) => Stack(
                                 children: [
@@ -757,8 +766,11 @@ class _InputInspectionScreenState extends State<InputInspectionScreen> {
                                           shape: BoxShape.circle,
                                         ),
                                         padding: const EdgeInsets.all(4),
-                                        child: const Icon(Icons.close,
-                                            size: 16, color: Colors.white),
+                                        child: const Icon(
+                                          Icons.close,
+                                          size: 16,
+                                          color: Colors.white,
+                                        ),
                                       ),
                                     ),
                                   ),
@@ -779,11 +791,13 @@ class _InputInspectionScreenState extends State<InputInspectionScreen> {
                                     ),
                                   ),
                                   SizedBox(width: 8),
-                                  Text('Mengupload foto...',
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        color: Colors.grey,
-                                      )),
+                                  Text(
+                                    'Mengupload foto...',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.grey,
+                                    ),
+                                  ),
                                 ],
                               ),
                             ),
@@ -794,7 +808,9 @@ class _InputInspectionScreenState extends State<InputInspectionScreen> {
 
                     // 6️⃣ TOMBOL SUBMIT (LEBAR PENUH)
                     ElevatedButton(
-                      onPressed: _isLoading || _isUploading ? null : _submitInspection,
+                      onPressed: _isLoading || _isUploading
+                          ? null
+                          : _submitInspection,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFF2196F3),
                         padding: const EdgeInsets.symmetric(vertical: 16),

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'dart:convert';
 import '../services/api_services.dart';
+import '../app_notify.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -18,12 +19,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
   Future<void> _doLogin() async {
     if (_usernameController.text.isEmpty || _passwordController.text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Username dan password wajib diisi!'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      AppNotify.warning(context, 'Username dan password wajib diisi!');
       return;
     }
 
@@ -34,7 +30,6 @@ class _LoginScreenState extends State<LoginScreen> {
       print('Username: ${_usernameController.text.trim()}');
       print('Password: ${_passwordController.text}');
 
-      // ✅ FIXED: ApiServices (dengan 's')
       final result = await ApiServices.login(
         _usernameController.text.trim(),
         _passwordController.text,
@@ -59,15 +54,9 @@ class _LoginScreenState extends State<LoginScreen> {
           print('Error extracting user data: $e');
         }
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Login berhasil! Selamat datang, $userName'),
-            backgroundColor: Colors.green,
-            duration: const Duration(seconds: 2),
-          ),
-        );
-
-        Navigator.pushReplacementNamed(context, '/dashboard');
+        AppNotify.success(context, 'Login berhasil! Selamat datang, $userName');
+        await Future.delayed(const Duration(milliseconds: 900));
+        if (mounted) Navigator.pushReplacementNamed(context, '/dashboard');
       }
     } catch (e) {
       setState(() => _isLoading = false);
@@ -77,7 +66,6 @@ class _LoginScreenState extends State<LoginScreen> {
 
       if (mounted) {
         String errorMessage = 'Login gagal';
-
         if (e.toString().contains('401')) {
           errorMessage = 'Username atau password salah';
         } else if (e.toString().contains('404')) {
@@ -89,14 +77,7 @@ class _LoginScreenState extends State<LoginScreen> {
         } else {
           errorMessage = 'Error: ${e.toString()}';
         }
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(errorMessage),
-            backgroundColor: Colors.red,
-            duration: const Duration(seconds: 3),
-          ),
-        );
+        AppNotify.error(context, errorMessage);
       }
     }
   }
@@ -113,25 +94,13 @@ class _LoginScreenState extends State<LoginScreen> {
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
-        child: _isLoading
-            ? const Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    CircularProgressIndicator(),
-                    SizedBox(height: 20),
-                    Text('Logging in...'),
-                  ],
-                ),
-              )
-            : Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 30,
-                  vertical: 40,
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
+        child: Stack(
+          children: [
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 40),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
                     const Text(
                       'Welcome Back!',
                       style: TextStyle(
@@ -312,6 +281,38 @@ class _LoginScreenState extends State<LoginScreen> {
                   ],
                 ),
               ),
+            if (_isLoading)
+              Container(
+                color: Colors.white.withOpacity(0.85),
+                child: const Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      SizedBox(
+                        width: 52,
+                        height: 52,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 4,
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            Color(0xFF2196F3),
+                          ),
+                        ),
+                      ),
+                      SizedBox(height: 18),
+                      Text(
+                        'Logging in...',
+                        style: TextStyle(
+                          color: Color(0xFF1a2332),
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }

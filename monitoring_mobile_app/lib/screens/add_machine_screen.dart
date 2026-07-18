@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/api_services.dart';
+import '../app_notify.dart';
 
 class AddMachineScreen extends StatefulWidget {
   final int stationId;
@@ -34,22 +35,12 @@ class _AddMachineScreenState extends State<AddMachineScreen> {
       );
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Lori berhasil ditambahkan'),
-            backgroundColor: Colors.green,
-          ),
-        );
+        AppNotify.success(context, 'Lori berhasil ditambahkan');
         Navigator.pop(context, true);
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Gagal menambah Lori: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
+        AppNotify.error(context, 'Gagal menambah Lori: $e');
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);

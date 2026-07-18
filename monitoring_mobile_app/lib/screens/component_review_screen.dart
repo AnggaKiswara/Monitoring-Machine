@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../data_store.dart';
+import '../app_notify.dart';
 
 class ComponentReviewScreen extends StatefulWidget {
   final String componentName;
@@ -509,18 +510,14 @@ class _ComponentReviewScreenState extends State<ComponentReviewScreen> {
                 widget.health,
               );
 
+              AppNotify.success(
+                context,
+                'Data ${widget.componentName} berhasil dikirim!',
+              );
+
               Navigator.pop(context); // Tutup dialog
               Navigator.pop(context); // Kembali ke Component Detail
               Navigator.pop(context); // Kembali ke Lori Detail
-
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text(
-                    'Data ${widget.componentName} berhasil dikirim!',
-                  ),
-                  backgroundColor: Colors.green,
-                ),
-              );
             },
             child: const Text('Kirim'),
           ),

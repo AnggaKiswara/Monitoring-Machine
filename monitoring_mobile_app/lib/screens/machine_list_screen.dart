@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/api_services.dart';
+import '../app_notify.dart';
 import 'machine_detail_screen.dart';
 import 'add_machine_screen.dart';
 
@@ -397,22 +398,12 @@ class _MachineListScreenState extends State<MachineListScreen> {
               try {
                 await ApiServices.deleteMachine(machineId: machineId);
                 if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('Lori "$name" dihapus'),
-                      backgroundColor: Colors.green,
-                    ),
-                  );
+                  AppNotify.success(context, 'Lori "$name" dihapus');
                   _loadLoriList();
                 }
               } catch (e) {
                 if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('Gagal: $e'),
-                      backgroundColor: Colors.red,
-                    ),
-                  );
+                  AppNotify.error(context, 'Gagal: $e');
                 }
               }
             },

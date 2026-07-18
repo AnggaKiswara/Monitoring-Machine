@@ -3,6 +3,7 @@ const ctrl = require("../controllers/serviceHistory.controller");
 const { authenticate, authorize } = require("../middleware/auth");
 
 router.use(authenticate);
+router.get("/global", ctrl.getGlobal);
 router.get("/", ctrl.getAll);
 router.get("/:id", ctrl.getOne);
 router.post("/", ctrl.create); // semua role login boleh nyatet histori service

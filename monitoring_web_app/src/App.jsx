@@ -9,6 +9,8 @@ import Stations from './pages/Stations';
 import Machines from './pages/Machines';
 import Inspections from './pages/Inspections';
 import InspectionDetail from './pages/InspectionDetail';
+import InspectionEdit from './pages/InspectionEdit';
+import Reports from './pages/Reports';
 import Alerts from './pages/Alerts';
 import AlertRules from './pages/AlertRules';
 import Users from './pages/Users';
@@ -31,6 +33,8 @@ export default function App() {
         <Route path="/machines" element={<RequireAuth><Machines /></RequireAuth>} />
         <Route path="/inspections" element={<RequireAuth><Inspections /></RequireAuth>} />
         <Route path="/inspections/:machineId/:serviceId" element={<RequireAuth><InspectionDetail /></RequireAuth>} />
+        <Route path="/inspections/:machineId/:serviceId/edit" element={<RequireAuth><InspectionEdit /></RequireAuth>} />
+        <Route path="/reports" element={<RequireAuth><Reports /></RequireAuth>} />
         <Route path="/alerts" element={<RequireAuth><Alerts /></RequireAuth>} />
         <Route path="/alert-rules" element={<RequireAuth><AlertRules /></RequireAuth>} />
         <Route path="/users" element={<RequireAuth><Users /></RequireAuth>} />

@@ -34,3 +34,24 @@ body {
     border-radius: 1.25rem;
   }
 }
+
+@media print {
+  body {
+    background: #fff !important;
+  }
+  aside,
+  .no-print {
+    display: none !important;
+  }
+  main {
+    overflow: visible !important;
+  }
+  .print-area {
+    display: block;
+  }
+  .print-section {
+    page-break-inside: avoid;
+    box-shadow: none !important;
+    border: 1px solid #ddd;
+  }
+}

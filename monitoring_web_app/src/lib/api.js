@@ -112,6 +112,12 @@ export const API = {
     apiRequest(`/service-history/global?limit=${limit}&offset=${offset}`, { token }),
   getInspectionDetail: (token, machineId, serviceId) =>
     apiRequest(`/machines/${machineId}/inspection/${serviceId}`, { token }),
+  updateInspection: (token, machineId, serviceId, body) =>
+    apiRequest(`/machines/${machineId}/inspection/${serviceId}`, { token, method: 'PUT', body }),
+  deleteInspection: (token, machineId, serviceId) =>
+    apiRequest(`/machines/${machineId}/inspection/${serviceId}`, { token, method: 'DELETE' }),
+  deletePhoto: (token, machineId, serviceId, photoId) =>
+    apiRequest(`/machines/${machineId}/inspection/${serviceId}/photos/${photoId}`, { token, method: 'DELETE' }),
 
   // Users
   getUsers: (token) => apiRequest('/users', { token }),

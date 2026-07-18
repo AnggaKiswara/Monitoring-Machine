@@ -7,6 +7,7 @@ const NAV = [
   { to: '/stations', label: 'Station', icon: '🏬' },
   { to: '/machines', label: 'Machine (Lori)', icon: '🚛' },
   { to: '/inspections', label: 'Riwayat Inspeksi', icon: '📋' },
+  { to: '/reports', label: 'Laporan', icon: '🖨' },
   { to: '/alerts', label: 'Alert', icon: '⚠' },
   { to: '/alert-rules', label: 'Aturan Alert', icon: '⚙' },
   { to: '/users', label: 'User', icon: '👤' },

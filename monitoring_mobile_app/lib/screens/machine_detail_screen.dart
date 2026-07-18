@@ -406,6 +406,7 @@ class _MachineDetailScreenState extends State<MachineDetailScreen>
         // Reset form setelah sukses
         setState(() {
           _komponenConditions.clear();
+          _photos.clear(); // bersihkan foto dari form (hindari "cache" tersisa)
           _inspectionPicController.clear();
           _inspectionKeteranganController.clear();
           _inspectionDate = DateTime.now();

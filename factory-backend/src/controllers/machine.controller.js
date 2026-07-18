@@ -422,12 +422,20 @@ module.exports.uploadInspectionPhotos = async (req, res) => {
     const insertedPhotos = [];
 
     for (const file of req.files) {
-      const photoPath = `uploads/inspections/${file.filename}`;
+      // Pakai file.path (absolut, dijamin ada kalau diskStorage sukses write)
+      const baseName = file.path
+        ? path.basename(file.path)
+        : (file.filename || null);
+      if (!baseName) {
+        console.error("Skip file tanpa path:", file.originalname);
+        continue;
+      }
+      const photoPath = `uploads/inspections/${baseName}`;
 
       const [result] = await db.query(
         `INSERT INTO inspection_photo (id_service, id_komponen, photo_path, caption)
          VALUES (?, ?, ?, ?)`,
-        [serviceId, id_komponen || null, caption || null, photoPath]
+        [serviceId, id_komponen || null, photoPath, caption || null]
       );
 
       insertedPhotos.push({

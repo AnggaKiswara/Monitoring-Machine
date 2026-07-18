@@ -1,6 +1,9 @@
 const express = require("express");
 const router = express.Router();
 const db = require("../config/db");
+const { authenticate, authorize } = require("../middleware/auth");
+
+router.use(authenticate);
 
 // GET all factories
 router.get("/", async (req, res) => {
@@ -26,7 +29,7 @@ router.get("/:id", async (req, res) => {
 });
 
 // POST create factory
-router.post("/", async (req, res) => {
+router.post("/", authorize("admin"), async (req, res) => {
   try {
     const { nama_factory, lokasi_factory, health_factory } = req.body;
     const [result] = await db.query("INSERT INTO factory (nama_factory, lokasi_factory, health_factory) VALUES (?, ?, ?)", [
@@ -49,7 +52,7 @@ router.post("/", async (req, res) => {
 });
 
 // PUT update factory
-router.put("/:id", async (req, res) => {
+router.put("/:id", authorize("admin"), async (req, res) => {
   try {
     const { nama_factory, lokasi_factory, health_factory } = req.body;
     const [checkFactory] = await db.query("SELECT * FROM factory WHERE id_factory = ?", [req.params.id]);
@@ -69,7 +72,7 @@ router.put("/:id", async (req, res) => {
 });
 
 // DELETE factory (cascade: hapus station + machine miliknya dulu)
-router.delete("/:id", async (req, res) => {
+router.delete("/:id", authorize("admin"), async (req, res) => {
   try {
     const factoryId = req.params.id;
     const [checkFactory] = await db.query(

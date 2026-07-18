@@ -10,7 +10,27 @@ body,
 
 body {
   margin: 0;
-  background: #f1f5f9;
-  color: #1a2332;
   font-family: 'Inter', system-ui, sans-serif;
+  color: #1a2332;
+  background: linear-gradient(135deg, #eef2ff 0%, #f5f3ff 45%, #e0f2fe 100%);
+  background-attachment: fixed;
+  min-height: 100vh;
+}
+
+@layer components {
+  .glass {
+    background: rgba(255, 255, 255, 0.55);
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+    border: 1px solid rgba(255, 255, 255, 0.6);
+    box-shadow: 0 8px 32px rgba(31, 38, 135, 0.12);
+    border-radius: 1.5rem;
+  }
+  .glass-soft {
+    background: rgba(255, 255, 255, 0.4);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.45);
+    border-radius: 1.25rem;
+  }
 }

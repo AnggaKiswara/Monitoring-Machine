@@ -42,9 +42,6 @@ class _MachineListScreenState extends State<MachineListScreen> {
     return 0;
   }
 
-  List<dynamic> _loriList = [];
-  bool _loading = true;
-  String? _error;
   bool _canManageLori = false;
 
   @override

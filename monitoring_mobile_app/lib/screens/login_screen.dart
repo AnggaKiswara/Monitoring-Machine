@@ -237,38 +237,16 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                     ),
                     const SizedBox(height: 20),
-                    Row(
-                      children: [
-                        Expanded(child: Divider(color: Colors.grey[300])),
-                        const Padding(
-                          padding: EdgeInsets.symmetric(horizontal: 10),
-                          child: Text(
-                            'or sign in with',
-                            style: TextStyle(color: Colors.grey),
-                          ),
-                        ),
-                        Expanded(child: Divider(color: Colors.grey[300])),
-                      ],
-                    ),
-                    const SizedBox(height: 20),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        _buildSocialButton(Icons.g_mobiledata, Colors.red),
-                        const SizedBox(width: 20),
-                        _buildSocialButton(Icons.window, Colors.blue),
-                      ],
-                    ),
                     const Spacer(),
                     Center(
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          const Text("Don't have account? "),
+                          const Text("Belum punya akun? "),
                           GestureDetector(
                             onTap: () {},
                             child: const Text(
-                              'Sign Up',
+                              'Hubungi admin',
                               style: TextStyle(
                                 color: Color(0xFF2196F3),
                                 fontWeight: FontWeight.bold,
@@ -314,18 +292,6 @@ class _LoginScreenState extends State<LoginScreen> {
           ],
         ),
       ),
-    );
-  }
-
-  Widget _buildSocialButton(IconData icon, Color color) {
-    return Container(
-      width: 60,
-      height: 60,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        border: Border.all(color: Colors.grey[300]!),
-      ),
-      child: Icon(icon, color: color, size: 28),
     );
   }
 }

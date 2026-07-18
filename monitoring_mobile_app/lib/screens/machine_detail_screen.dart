@@ -7,7 +7,6 @@ import 'package:image_picker/image_picker.dart';
 import '../services/api_services.dart';
 import '../app_notify.dart';
 import 'lori_detail_screen.dart';
-import 'input_inspection_screen.dart';
 import 'inspection_history_detail_screen.dart';
 
 class MachineDetailScreen extends StatefulWidget {

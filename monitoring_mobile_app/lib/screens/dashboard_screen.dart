@@ -80,15 +80,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           children: [
             Text(
               'Welcome, $_userName',
-              style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-            ),
-            const Text(
-              'Factory List',
-              style: TextStyle(
-                color: Color(0xFF1a2332),
-                fontWeight: FontWeight.bold,
-                fontSize: 20,
-              ),
+              style: TextStyle(fontSize: 14, color: Colors.grey[600]),
             ),
           ],
         ),

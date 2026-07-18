@@ -17,6 +17,7 @@ const sensorReadingRoutes = require("./routes/sensorReading.routes");
 const alertRuleRoutes = require("./routes/alertRule.routes");
 const serviceAlertRoutes = require("./routes/serviceAlert.routes");
 const serviceHistoryRoutes = require("./routes/serviceHistory.routes");
+const userRoutes = require("./routes/user.routes");
 const factoryRoutes = require("./routes/factory.routes");
 
 const app = express();
@@ -73,6 +74,7 @@ app.use("/api/sensor-readings", sensorReadingRoutes);
 app.use("/api/alert-rules", alertRuleRoutes);
 app.use("/api/service-alerts", serviceAlertRoutes);
 app.use("/api/service-history", serviceHistoryRoutes);
+app.use("/api/users", userRoutes);
 
 // 404 handler
 app.use((req, res) => {

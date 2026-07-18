@@ -22,7 +22,8 @@ const upload = multer({
     const allowed = /jpeg|jpg|png|webp/;
     const extOk = allowed.test(path.extname(file.originalname).toLowerCase());
     const mimeOk = allowed.test(file.mimetype);
-    if (extOk && mimeOk) cb(null, true);
+    // Android sering kirim content-URI tanpa ekstensi → andalkan mimetype
+    if (mimeOk || extOk) cb(null, true);
     else cb(new Error("Hanya file gambar (jpg, png, webp) yang diizinkan"));
   },
 });
@@ -259,7 +260,7 @@ module.exports.getServiceHistory = async (req, res) => {
       FROM service_history sh
       LEFT JOIN user_account u ON sh.id_user = u.id_user
       WHERE sh.id_mesin = ?
-      ORDER BY sh.service_date DESC
+      ORDER BY sh.created_at DESC, sh.id_service DESC
       LIMIT ? OFFSET ?
     `;
 
@@ -306,7 +307,7 @@ module.exports.getInspectionDetail = async (req, res) => {
 
     const service = services[0];
 
-    // 2. Get all komponen for this machine with their sensor readings at service_date
+    // 2. Get semua komponen machine + sensor_reading yang TERIKAT ke inspeksi ini
     const [komponenReadings] = await db.query(
       `SELECT 
         k.id_komponen,
@@ -317,11 +318,11 @@ module.exports.getInspectionDetail = async (req, res) => {
         p.nama_parameter
       FROM komponen k
       LEFT JOIN sensor_reading sr ON k.id_komponen = sr.id_komponen
-        AND DATE(sr.recorded_at) = DATE(?)
+        AND sr.id_service = ?
       LEFT JOIN parameter p ON sr.id_parameter = p.id_parameter
       WHERE k.id_mesin = ?
       ORDER BY k.id_komponen, p.nama_parameter`,
-      [service.service_date, id]
+      [serviceId, id]
     );
 
     // 3. Group by komponen - ambil nilai rata-rata per komponen
@@ -527,9 +528,10 @@ module.exports.submitInspection = async (req, res) => {
     const healthBefore = machine.health_mesin || 0;
     const serviceDate = tanggal_inspeksi || new Date().toISOString().split("T")[0];
 
-    // 2. Process setiap komponen
+    // 2. Hitung health baru dari input komponen (tanpa insert dulu)
     let totalNilai = 0;
     let komponenCount = 0;
+    const readingsToInsert = []; // kumpulkan (id_komponen, id_parameter, nilai)
 
     for (const item of komponen_conditions) {
       const { id_komponen, kondisi, nilai } = item;
@@ -544,13 +546,8 @@ module.exports.submitInspection = async (req, res) => {
       );
 
       if (parameters.length > 0) {
-        // Insert sensor_reading untuk setiap parameter yang sudah di-mapping
         for (const param of parameters) {
-          await connection.query(
-            `INSERT INTO sensor_reading (id_komponen, id_parameter, nilai, recorded_at)
-             VALUES (?, ?, ?, ?)`,
-            [id_komponen, param.id_parameter, nilai, serviceDate]
-          );
+          readingsToInsert.push([id_komponen, param.id_parameter, nilai]);
         }
       } else {
         // Jika belum ada mapping komponen_parameter, cari/buat parameter default "kondisi"
@@ -563,26 +560,18 @@ module.exports.submitInspection = async (req, res) => {
         if (existingParam.length > 0) {
           defaultParamId = existingParam[0].id_parameter;
         } else {
-          // Buat parameter default "kondisi"
           const [newParam] = await connection.query(
             `INSERT INTO parameter (nama_parameter, satuan, nilai_min, nilai_max) VALUES ('kondisi', '%', 0, 100)`
           );
           defaultParamId = newParam.insertId;
         }
 
-        // Buat mapping komponen_parameter
         await connection.query(
           `INSERT IGNORE INTO komponen_parameter (id_komponen, id_parameter, is_active) VALUES (?, ?, 1)`,
           [id_komponen, defaultParamId]
         );
 
-        // Insert sensor_reading
-        await connection.query(
-          `INSERT INTO sensor_reading (id_komponen, id_parameter, nilai, recorded_at)
-           VALUES (?, ?, ?, ?)`,
-          [id_komponen, defaultParamId, nilai, serviceDate]
-        );
-
+        readingsToInsert.push([id_komponen, defaultParamId, nilai]);
         console.log(`Auto-created parameter mapping for komponen ${id_komponen}`);
       }
 
@@ -606,7 +595,7 @@ module.exports.submitInspection = async (req, res) => {
     // 5. Build description: "PIC: nama - keterangan"
     const description = "PIC: " + pic.trim() + (keterangan ? " - " + keterangan.trim() : "");
 
-    // 6. Insert service_history
+    // 6. Insert service_history dulu → dapat id_service
     const [historyResult] = await connection.query(
       `INSERT INTO service_history
        (id_user, id_station, id_mesin, service_type, description,
@@ -614,6 +603,16 @@ module.exports.submitInspection = async (req, res) => {
        VALUES (?, ?, ?, 'inspection', ?, ?, ?, ?, ?, NOW())`,
       [id_user || null, machine.id_station, id, description, healthBefore, healthAfter, serviceDate, nextServiceDate]
     );
+    const serviceId = historyResult.insertId;
+
+    // 6b. Insert sensor_reading terikat ke id_service ini
+    for (const [id_komponen, id_parameter, nilai] of readingsToInsert) {
+      await connection.query(
+        `INSERT INTO sensor_reading (id_komponen, id_parameter, nilai, recorded_at, id_service)
+         VALUES (?, ?, ?, ?, ?)`,
+        [id_komponen, id_parameter, nilai, serviceDate, serviceId]
+      );
+    }
 
     // 7. Update machine health & service dates
     await connection.query(

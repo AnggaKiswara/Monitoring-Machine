@@ -119,6 +119,7 @@ CREATE TABLE IF NOT EXISTS sensor_reading (
     id_reading      BIGINT AUTO_INCREMENT PRIMARY KEY,
     id_komponen     INT NOT NULL,
     id_parameter    INT NOT NULL,
+    id_service      INT DEFAULT NULL,
     nilai           FLOAT NOT NULL,
     recorded_at     DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT fk_reading_komponen FOREIGN KEY (id_komponen)

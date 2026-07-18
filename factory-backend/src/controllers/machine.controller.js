@@ -661,7 +661,7 @@ module.exports.submitInspection = async (req, res) => {
 };
 
 // PUT - Update inspection (service_history + komponen readings + health)
-module.exports.updateInspection = async (req, res) => {
+async function updateInspection(req, res) {
   const connection = await db.getConnection();
   try {
     const { id, serviceId } = req.params;
@@ -752,7 +752,7 @@ module.exports.updateInspection = async (req, res) => {
 };
 
 // DELETE - Hapus inspection (cascade sensor_reading + photo + service_history)
-module.exports.deleteInspection = async (req, res) => {
+async function deleteInspection(req, res) {
   const connection = await db.getConnection();
   try {
     const { id, serviceId } = req.params;
@@ -779,7 +779,7 @@ module.exports.deleteInspection = async (req, res) => {
 };
 
 // DELETE - Hapus 1 foto inspeksi
-module.exports.deletePhoto = async (req, res) => {
+async function deletePhoto(req, res) {
   try {
     const { serviceId, photoId } = req.params;
     const [photos] = await db.query(

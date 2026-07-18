@@ -41,6 +41,9 @@ module.exports = {
   update: crud.update,
   remove: crud.remove,
   uploadMiddleware, // ← dipakai di machine.routes.js (upload foto inspeksi)
+  updateInspection,
+  deleteInspection,
+  deletePhoto,
 };
 
 // Template komponen default untuk setiap Lori baru
@@ -654,5 +657,141 @@ module.exports.submitInspection = async (req, res) => {
     });
   } finally {
     connection.release();
+  }
+};
+
+// PUT - Update inspection (service_history + komponen readings + health)
+module.exports.updateInspection = async (req, res) => {
+  const connection = await db.getConnection();
+  try {
+    const { id, serviceId } = req.params;
+    const { tanggal_inspeksi, pic, keterangan, komponen_conditions } = req.body;
+
+    const [services] = await connection.query(
+      "SELECT * FROM service_history WHERE id_service = ? AND id_mesin = ?",
+      [serviceId, id]
+    );
+    if (services.length === 0) {
+      connection.release();
+      return res.status(404).json({ success: false, message: "Inspeksi tidak ditemukan" });
+    }
+
+    await connection.beginTransaction();
+
+    // 1. Hitung health dari komponen
+    let totalNilai = 0;
+    let komponenCount = 0;
+    const serviceDate = tanggal_inspeksi || services[0].service_date;
+
+    if (Array.isArray(komponen_conditions)) {
+      for (const item of komponen_conditions) {
+        const { id_komponen, nilai } = item;
+        // cari parameter komponen
+        const [parameters] = await connection.query(
+          `SELECT p.id_parameter FROM parameter p
+           JOIN komponen_parameter kp ON p.id_parameter = kp.id_parameter
+           WHERE kp.id_komponen = ? AND kp.is_active = 1`,
+          [id_komponen]
+        );
+        let paramIds = parameters.map((p) => p.id_parameter);
+        if (paramIds.length === 0) {
+          const [ep] = await connection.query("SELECT id_parameter FROM parameter WHERE nama_parameter = 'kondisi'");
+          paramIds = ep.length ? [ep[0].id_parameter] : [];
+        }
+        for (const pid of paramIds) {
+          // update jika ada, insert jika belum
+          const [existing] = await connection.query(
+            "SELECT id_reading FROM sensor_reading WHERE id_service = ? AND id_komponen = ? AND id_parameter = ?",
+            [serviceId, id_komponen, pid]
+          );
+          if (existing.length > 0) {
+            await connection.query(
+              "UPDATE sensor_reading SET nilai = ?, recorded_at = ? WHERE id_reading = ?",
+              [nilai, serviceDate, existing[0].id_reading]
+            );
+          } else {
+            await connection.query(
+              "INSERT INTO sensor_reading (id_komponen, id_parameter, nilai, recorded_at, id_service) VALUES (?, ?, ?, ?, ?)",
+              [id_komponen, pid, nilai, serviceDate, serviceId]
+            );
+          }
+        }
+        await connection.query(
+          "UPDATE komponen SET avg_health_all_parameter = ?, last_service = ?, updated_at = NOW() WHERE id_komponen = ?",
+          [nilai, serviceDate, id_komponen]
+        );
+        totalNilai += Number(nilai) || 0;
+        komponenCount++;
+      }
+    }
+
+    const healthAfter =
+      komponenCount > 0 ? Math.round((totalNilai / komponenCount) * 100) / 100 : services[0].health_mesin_after;
+    const description = "PIC: " + (pic || "").trim() + (keterangan ? " - " + keterangan.trim() : "");
+    const nextServiceDate = new Date(new Date(serviceDate).getTime() + 7 * 24 * 60 * 60 * 1000);
+
+    await connection.query(
+      `UPDATE service_history
+       SET description = ?, health_mesin_after = ?, service_date = ?, next_service_date = ?, updated_at = NOW()
+       WHERE id_service = ?`,
+      [description, healthAfter, serviceDate, nextServiceDate, serviceId]
+    );
+    await connection.query(
+      "UPDATE machine SET health_mesin = ?, last_service = ?, next_service = ?, updated_at = NOW() WHERE id_mesin = ?",
+      [healthAfter, serviceDate, nextServiceDate, id]
+    );
+
+    await connection.commit();
+    res.json({ success: true, message: "Inspeksi diperbarui", data: { id_service: serviceId, health_after: healthAfter } });
+  } catch (error) {
+    await connection.rollback();
+    res.status(500).json({ success: false, message: error.message });
+  } finally {
+    connection.release();
+  }
+};
+
+// DELETE - Hapus inspection (cascade sensor_reading + photo + service_history)
+module.exports.deleteInspection = async (req, res) => {
+  const connection = await db.getConnection();
+  try {
+    const { id, serviceId } = req.params;
+    const [services] = await connection.query(
+      "SELECT * FROM service_history WHERE id_service = ? AND id_mesin = ?",
+      [serviceId, id]
+    );
+    if (services.length === 0) {
+      connection.release();
+      return res.status(404).json({ success: false, message: "Inspeksi tidak ditemukan" });
+    }
+    await connection.beginTransaction();
+    await connection.query("DELETE FROM sensor_reading WHERE id_service = ?", [serviceId]);
+    await connection.query("DELETE FROM inspection_photo WHERE id_service = ?", [serviceId]);
+    await connection.query("DELETE FROM service_history WHERE id_service = ?", [serviceId]);
+    await connection.commit();
+    res.json({ success: true, message: "Inspeksi dihapus" });
+  } catch (error) {
+    await connection.rollback();
+    res.status(500).json({ success: false, message: error.message });
+  } finally {
+    connection.release();
+  }
+};
+
+// DELETE - Hapus 1 foto inspeksi
+module.exports.deletePhoto = async (req, res) => {
+  try {
+    const { serviceId, photoId } = req.params;
+    const [photos] = await db.query(
+      "SELECT * FROM inspection_photo WHERE id_photo = ? AND id_service = ?",
+      [photoId, serviceId]
+    );
+    if (photos.length === 0) {
+      return res.status(404).json({ success: false, message: "Foto tidak ditemukan" });
+    }
+    await db.query("DELETE FROM inspection_photo WHERE id_photo = ?", [photoId]);
+    res.json({ success: true, message: "Foto dihapus" });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
   }
 };

@@ -12,7 +12,10 @@ router.post("/:id/hm", authenticate, ctrl.updateHM);
 router.post("/:id/pm", authenticate, ctrl.recordPM);
 router.post("/:id/inspection", authenticate, ctrl.submitInspection);
 router.get("/:id/inspection/:serviceId", authenticate, ctrl.getInspectionDetail);
+router.put("/:id/inspection/:serviceId", authorize("admin"), ctrl.updateInspection);
+router.delete("/:id/inspection/:serviceId", authorize("admin"), ctrl.deleteInspection);
 router.post("/:id/inspection/:serviceId/photos", authenticate, ctrl.uploadMiddleware, ctrl.uploadInspectionPhotos);
+router.delete("/:id/inspection/:serviceId/photos/:photoId", authorize("admin"), ctrl.deletePhoto);
 router.get("/:id/history", authenticate, ctrl.getServiceHistory);
 router.get("/:id/pm-status", authenticate, ctrl.getPMStatus);
 

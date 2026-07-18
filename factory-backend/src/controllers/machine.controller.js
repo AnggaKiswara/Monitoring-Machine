@@ -294,9 +294,21 @@ module.exports.getInspectionDetail = async (req, res) => {
         DATE_FORMAT(sh.service_date, '%Y-%m-%d') as service_date,
         DATE_FORMAT(sh.next_service_date, '%Y-%m-%d') as next_service_date,
         DATE_FORMAT(sh.created_at, '%Y-%m-%d %H:%i:%s') as created_at,
-        u.nama_lengkap as teknisi_name
+        u.nama_lengkap as teknisi_name,
+        m.nama_mesin as nama_lori,
+        m.kode_mesin,
+        s.nama_station,
+        s.id_factory,
+        f.nama_factory,
+        CASE
+          WHEN sh.description LIKE 'PIC: %' THEN TRIM(SUBSTRING_INDEX(SUBSTRING_INDEX(sh.description, 'PIC: ', -1), ' - ', 1))
+          ELSE ''
+        END as pic_name
       FROM service_history sh
       LEFT JOIN user_account u ON sh.id_user = u.id_user
+      JOIN machine m ON sh.id_mesin = m.id_mesin
+      JOIN station s ON sh.id_station = s.id_station
+      LEFT JOIN factory f ON s.id_factory = f.id_factory
       WHERE sh.id_service = ? AND sh.id_mesin = ?`,
       [serviceId, id]
     );

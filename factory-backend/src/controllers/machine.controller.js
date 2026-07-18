@@ -209,7 +209,7 @@ module.exports.recordPM = async (req, res) => {
     const nextServiceDate = new Date(new Date(tanggal_service).getTime() + 7 * 24 * 60 * 60 * 1000);
 
     // Insert to service history (sesuai struktur tabel yang ada)
-    await db.query(
+    const [result] = await db.query(
       `INSERT INTO service_history 
        (id_user, id_station, id_mesin, service_type, description, health_mesin_before, health_mesin_after, service_date, next_service_date) 
        VALUES (?, ?, ?, 'preventive', ?, ?, ?, ?, ?)`,
@@ -229,6 +229,7 @@ module.exports.recordPM = async (req, res) => {
       success: true,
       message: "PM berhasil dicatat",
       data: {
+        id_service: result.insertId, // ← dibutuhkan mobile utk upload foto
         last_pm_date: tanggal_service || new Date(),
         next_pm_date: nextServiceDate,
         next_pm_hm: machine.hm_current + machine.pm_interval,

@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
+import 'dart:io';
+import 'package:image_picker/image_picker.dart';
 import '../services/api_services.dart';
 import 'lori_detail_screen.dart';
 import 'input_inspection_screen.dart';
@@ -40,6 +42,11 @@ class _MachineDetailScreenState extends State<MachineDetailScreen>
   DateTime? _nextPMDate;
   String? _picName;
   int _komponenCount = 0;
+
+  // ✅ FOTO INSPEKSI
+  List<File> _photos = [];
+  bool _isUploading = false;
+  final ImagePicker _picker = ImagePicker();
 
   // Component inspection state
   Map<int, String> _komponenConditions = {};
@@ -354,6 +361,21 @@ class _MachineDetailScreenState extends State<MachineDetailScreen>
         komponenConditions: komponenConditions,
       );
 
+      // ✅ Upload foto inspeksi (jika ada)
+      final serviceId = result['id_service'];
+      if (_photos.isNotEmpty && serviceId != null) {
+        try {
+          await ApiServices.uploadInspectionPhotos(
+            machineId: widget.machineId,
+            serviceId: serviceId,
+            photos: _photos,
+          );
+        } catch (photoErr) {
+          // Foto gagal, tapi inspeksi sudah tersimpan → tetap lanjut
+          debugPrint('Upload foto gagal: $photoErr');
+        }
+      }
+
       // Clear draft setelah berhasil simpan
       await _clearDraft();
 
@@ -389,7 +411,159 @@ class _MachineDetailScreenState extends State<MachineDetailScreen>
     }
   }
 
-  // Helper functions
+  // ✅ FOTO INSPEKSI — pilih dari kamera/galeri
+  Future<void> _pickPhoto() async {
+    final picked = await _picker.pickImage(
+      source: ImageSource.camera,
+      imageQuality: 80,
+      maxWidth: 1280,
+    ).catchError((_) => null);
+    if (picked != null) {
+      setState(() => _photos.add(File(picked.path)));
+    }
+  }
+
+  Future<void> _pickFromGallery() async {
+    final picked = await _picker.pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 80,
+      maxWidth: 1280,
+    ).catchError((_) => null);
+    if (picked != null) {
+      setState(() => _photos.add(File(picked.path)));
+    }
+  }
+
+  void _removePhoto(int index) {
+    setState(() => _photos.removeAt(index));
+  }
+
+  void _showPhotoSourceSheet() {
+    showModalBottomSheet(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: Wrap(
+          children: [
+            ListTile(
+              leading: const Icon(Icons.camera_alt),
+              title: const Text('Kamera'),
+              onTap: () {
+                Navigator.pop(ctx);
+                _pickPhoto();
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.photo_library),
+              title: const Text('Galeri'),
+              onTap: () {
+                Navigator.pop(ctx);
+                _pickFromGallery();
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPhotoSection() {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 20),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.withOpacity(0.1),
+            spreadRadius: 1,
+            blurRadius: 5,
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.photo_camera, color: Color(0xFF2196F3)),
+              const SizedBox(width: 8),
+              const Text(
+                'Foto Inspeksi',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF1a2332),
+                ),
+              ),
+              const Spacer(),
+              TextButton.icon(
+                onPressed: _showPhotoSourceSheet,
+                icon: const Icon(Icons.add_a_photo, size: 18),
+                label: const Text('Tambah'),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          if (_photos.isEmpty)
+            GestureDetector(
+              onTap: _showPhotoSourceSheet,
+              child: Container(
+                height: 120,
+                decoration: BoxDecoration(
+                  color: Colors.grey[50],
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.grey[300]!, width: 1.5),
+                ),
+                child: const Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.add_a_photo, size: 32, color: Colors.grey),
+                      SizedBox(height: 6),
+                      Text('Tap untuk tambah foto',
+                          style: TextStyle(color: Colors.grey)),
+                    ],
+                  ),
+                ),
+              ),
+            )
+          else
+            GridView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 3,
+                crossAxisSpacing: 8,
+                mainAxisSpacing: 8,
+              ),
+              itemCount: _photos.length,
+              itemBuilder: (context, i) => Stack(
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: Image.file(_photos[i], fit: BoxFit.cover,
+                        width: double.infinity, height: double.infinity),
+                  ),
+                  Positioned(
+                    top: 2,
+                    right: 2,
+                    child: GestureDetector(
+                      onTap: () => _removePhoto(i),
+                      child: const CircleAvatar(
+                        radius: 12,
+                        backgroundColor: Colors.red,
+                        child: Icon(Icons.close, size: 14, color: Colors.white),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+        ],
+      ),
+    );
+  }
   double _toDouble(dynamic value) {
     if (value == null) return 0;
     if (value is double) return value;
@@ -821,6 +995,9 @@ class _MachineDetailScreenState extends State<MachineDetailScreen>
             );
           }).toList(),
           const SizedBox(height: 20),
+
+          // ✅ FOTO INSPEKSI
+          _buildPhotoSection(),
 
           // Submit Button
           ElevatedButton.icon(

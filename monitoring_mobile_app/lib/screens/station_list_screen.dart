@@ -218,6 +218,7 @@ class _StationListScreenState extends State<StationListScreen> {
                         station['nama_station'] ?? 'Unknown Station',
                         (station['health_station'] ?? 0).toDouble(),
                         _getStationIcon(station['nama_station'] ?? ''),
+                        _toInt(station['id_station']),
                       );
                     },
                   ),
@@ -265,7 +266,7 @@ class _StationListScreenState extends State<StationListScreen> {
     return Icons.settings;
   }
 
-  Widget _buildStationCard(String name, double health, IconData icon) {
+  Widget _buildStationCard(String name, double health, IconData icon, int stationId) {
     int healthInt = health.toInt();
     Color healthColor = healthInt >= 90
         ? Colors.green
@@ -319,6 +320,11 @@ class _StationListScreenState extends State<StationListScreen> {
                   color: Color(0xFF1a2332),
                 ),
               ),
+            ),
+            IconButton(
+              icon: const Icon(Icons.delete_outline, color: Colors.red),
+              tooltip: 'Hapus station',
+              onPressed: () => _confirmDeleteStation(stationId, name),
             ),
             Column(
               crossAxisAlignment: CrossAxisAlignment.end,
@@ -404,5 +410,60 @@ class _StationListScreenState extends State<StationListScreen> {
     } else if (index == 1) {
       Navigator.pushNamed(context, '/submitted_data');
     }
+  }
+
+  int _toInt(dynamic v) {
+    if (v == null) return 0;
+    if (v is int) return v;
+    if (v is double) return v.toInt();
+    if (v is String) return int.tryParse(v) ?? 0;
+    return 0;
+  }
+
+  // ✅ Konfirmasi & hapus station (lori di dalamnya ikut terhapus)
+  void _confirmDeleteStation(int stationId, String name) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Hapus Station'),
+        content: Text(
+          'Yakin hapus "$name"? Semua lori di station ini juga ikut terhapus.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Batal'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () async {
+              Navigator.pop(ctx);
+              try {
+                await ApiServices.deleteStation(stationId: stationId);
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Station "$name" dihapus'),
+                      backgroundColor: Colors.green,
+                    ),
+                  );
+                  _loadStations();
+                }
+              } catch (e) {
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Gagal: $e'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                }
+              }
+            },
+            child: const Text('Hapus', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
   }
 }

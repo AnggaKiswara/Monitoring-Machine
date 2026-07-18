@@ -240,6 +240,12 @@ class _FactoryListScreenState extends State<FactoryListScreen> {
                     color: healthColor,
                   ),
                 ),
+                const SizedBox(width: 6),
+                IconButton(
+                  icon: const Icon(Icons.delete_outline, color: Colors.red),
+                  tooltip: 'Hapus factory',
+                  onPressed: () => _confirmDeleteFactory(factoryId, name),
+                ),
                 const SizedBox(height: 5),
                 const Icon(
                   Icons.arrow_forward_ios,
@@ -401,5 +407,52 @@ class _FactoryListScreenState extends State<FactoryListScreen> {
     } else if (index == 1) {
       Navigator.pushNamed(context, '/submitted_data');
     }
+  }
+
+  // ✅ Konfirmasi & hapus factory (cascade: station + lori ikut terhapus)
+  void _confirmDeleteFactory(int factoryId, String name) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Hapus Factory'),
+        content: Text(
+          'Yakin hapus "$name"? Semua station & lori di dalamnya juga ikut terhapus.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Batal'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () async {
+              Navigator.pop(ctx);
+              try {
+                await ApiServices.deleteFactory(factoryId: factoryId);
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Factory "$name" dihapus'),
+                      backgroundColor: Colors.green,
+                    ),
+                  );
+                  _loadFactories();
+                }
+              } catch (e) {
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Gagal: $e'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                }
+              }
+            },
+            child: const Text('Hapus', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
   }
 }

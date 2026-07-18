@@ -370,6 +370,52 @@ class ApiServices {
       throw Exception(message);
     }
   }
+
+  // ==================== DELETE MACHINE (LORI) ====================
+  static Future<void> deleteMachine({required int machineId}) async {
+    final headers = await _getHeaders();
+    final response = await http.delete(
+      Uri.parse('$baseUrl/machines/$machineId'),
+      headers: headers,
+    );
+    if (response.statusCode == 200 || response.statusCode == 204) {
+      return;
+    } else {
+      dynamic decoded = json.decode(response.body);
+      throw Exception(decoded['message'] ?? 'Gagal menghapus lori');
+    }
+  }
+
+  // ==================== DELETE STATION ====================
+  static Future<void> deleteStation({required int stationId}) async {
+    final headers = await _getHeaders();
+    final response = await http.delete(
+      Uri.parse('$baseUrl/stations/$stationId'),
+      headers: headers,
+    );
+    if (response.statusCode == 200 || response.statusCode == 204) {
+      return;
+    } else {
+      dynamic decoded = json.decode(response.body);
+      throw Exception(decoded['message'] ?? 'Gagal menghapus station');
+    }
+  }
+
+  // ==================== DELETE FACTORY ====================
+  static Future<void> deleteFactory({required int factoryId}) async {
+    final headers = await _getHeaders();
+    final response = await http.delete(
+      Uri.parse('$baseUrl/factories/$factoryId'),
+      headers: headers,
+    );
+    if (response.statusCode == 200 || response.statusCode == 204) {
+      return;
+    } else {
+      dynamic decoded = json.decode(response.body);
+      throw Exception(decoded['message'] ?? 'Gagal menghapus factory');
+    }
+  }
+
   // ==================== KOMPONEN ====================
 
   static Future<List<dynamic>> getKomponen({required int mesinId}) async {

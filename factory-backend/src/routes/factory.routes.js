@@ -68,14 +68,30 @@ router.put("/:id", async (req, res) => {
   }
 });
 
-// DELETE factory
+// DELETE factory (cascade: hapus station + machine miliknya dulu)
 router.delete("/:id", async (req, res) => {
   try {
-    const [checkFactory] = await db.query("SELECT * FROM factory WHERE id_factory = ?", [req.params.id]);
+    const factoryId = req.params.id;
+    const [checkFactory] = await db.query(
+      "SELECT * FROM factory WHERE id_factory = ?",
+      [factoryId],
+    );
     if (checkFactory.length === 0) {
       return res.status(404).json({ success: false, message: "Factory not found" });
     }
-    const [result] = await db.query("DELETE FROM factory WHERE id_factory = ?", [req.params.id]);
+    // Ambil station milik factory
+    const [stations] = await db.query(
+      "SELECT id_station FROM station WHERE id_factory = ?",
+      [factoryId],
+    );
+    for (const st of stations) {
+      // Hapus machine di station ini
+      await db.query("DELETE FROM machine WHERE id_station = ?", [st.id_station]);
+    }
+    // Hapus station
+    await db.query("DELETE FROM station WHERE id_factory = ?", [factoryId]);
+    // Hapus factory
+    await db.query("DELETE FROM factory WHERE id_factory = ?", [factoryId]);
     res.json({ success: true, message: "Factory deleted successfully" });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });

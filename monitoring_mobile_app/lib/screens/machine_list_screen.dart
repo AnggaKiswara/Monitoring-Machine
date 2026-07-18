@@ -340,6 +340,12 @@ class _MachineListScreenState extends State<MachineListScreen> {
                 color: color,
               ),
             ),
+            const SizedBox(width: 8),
+            IconButton(
+              icon: const Icon(Icons.delete_outline, color: Colors.red),
+              tooltip: 'Hapus lori',
+              onPressed: () => _confirmDeleteLori(machineId, name),
+            ),
             const SizedBox(width: 10),
             Container(
               width: 10,
@@ -356,5 +362,50 @@ class _MachineListScreenState extends State<MachineListScreen> {
     if (health >= 90) return Colors.green;
     if (health >= 70) return Colors.orange;
     return Colors.red;
+  }
+
+  // ✅ Konfirmasi & hapus lori
+  void _confirmDeleteLori(int machineId, String name) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Hapus Lori'),
+        content: Text('Yakin hapus "$name"? Data inspeksi lori ini juga ikut terhapus.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Batal'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () async {
+              Navigator.pop(ctx);
+              try {
+                await ApiServices.deleteMachine(machineId: machineId);
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Lori "$name" dihapus'),
+                      backgroundColor: Colors.green,
+                    ),
+                  );
+                  _loadLoriList();
+                }
+              } catch (e) {
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Gagal: $e'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                }
+              }
+            },
+            child: const Text('Hapus', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
   }
 }

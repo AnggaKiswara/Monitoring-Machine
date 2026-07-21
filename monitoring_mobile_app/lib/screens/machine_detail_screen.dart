@@ -6,6 +6,7 @@ import 'dart:io';
 import 'package:image_picker/image_picker.dart';
 import '../services/api_services.dart';
 import '../app_notify.dart';
+import '../data_store.dart';
 import 'lori_detail_screen.dart';
 import 'inspection_history_detail_screen.dart';
 import 'inspection_edit_screen.dart';
@@ -50,7 +51,10 @@ class _MachineDetailScreenState extends State<MachineDetailScreen>
   bool _isUploading = false;
   final ImagePicker _picker = ImagePicker();
 
-  // Component inspection state
+  // Ini menggunakan DataStore untuk bobot komponen
+  final DataStore _dataStore = DataStore();
+
+  // Komponen inspection state
   Map<int, String> _komponenConditions = {};
   bool _isSaving = false;
 
@@ -71,6 +75,18 @@ class _MachineDetailScreenState extends State<MachineDetailScreen>
     'Perlu Maintenance': 70.0,
     'Rusak': 30.0,
     'Tidak Ada': 0.0,
+  };
+
+  // ✅ Bobot default sesuai spreadsheet, dipakai jika DataStore belum menyimpan bobot.
+  static const Map<String, double> _defaultKomponenWeights = {
+    'Body': 25.0,
+    'Siku': 5.0,
+    'Steam Spreader': 7.0,
+    'Chasis': 25.0,
+    'Hock': 3.0,
+    'Cover Roda': 2.0,
+    'Roda': 13.0,
+    'Lantai': 20.0,
   };
 
   final List<String> _kondisiOptions = [
@@ -284,19 +300,36 @@ class _MachineDetailScreenState extends State<MachineDetailScreen>
     }
   }
 
-  // Hitung overall health
+  // Hitung overall health berbobot sesuai spreadsheet
+  // Rumus: sum(condition_i * weight_i) / sum(weight_i)
   double? get _overallHealth {
     if (_komponenConditions.isEmpty) return null;
 
-    double total = 0;
-    int count = 0;
+    double weightedSum = 0;
+    double totalWeight = 0;
 
-    _komponenConditions.forEach((key, value) {
-      total += _nilaiPersentase[value] ?? 0;
-      count++;
+    _komponenList.forEach((komponen) {
+      final komponenId = komponen['id_komponen'];
+      final kondisi = _komponenConditions[komponenId];
+      if (kondisi == null) return;
+
+      final conditionValue = _nilaiPersentase[kondisi] ?? 0;
+      final komponenName = komponen['nama_komponen']?.toString() ?? '';
+
+      // Gunakan bobot tersimpan di DataStore, fallback ke default spreadsheet
+      double weight = _dataStore.getKomponenWeight(
+        widget.machineName,
+        komponenName,
+      );
+      if (weight <= 0) {
+        weight = _defaultKomponenWeights[komponenName] ?? 0.0;
+      }
+
+      weightedSum += conditionValue * weight;
+      totalWeight += weight;
     });
 
-    return count > 0 ? total / count : null;
+    return totalWeight > 0 ? weightedSum / totalWeight : null;
   }
 
   Color _getHealthColor(double health) {

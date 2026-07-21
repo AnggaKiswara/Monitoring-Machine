@@ -79,6 +79,19 @@ class _LoriDetailScreenState extends State<LoriDetailScreen> {
     return _dataStore.getLoriOverallHealth(widget.loriName);
   }
 
+  // Default komponen weights aligned with the spreadsheet, used when
+  // DataStore has no saved weight yet for a lorry.
+  static const Map<String, double> _defaultKomponenWeights = {
+    'Body': 25.0,
+    'Siku': 5.0,
+    'Steam Spreader': 7.0,
+    'Chasis': 25.0,
+    'Hock': 3.0,
+    'Cover Roda': 2.0,
+    'Roda': 13.0,
+    'Lantai': 20.0,
+  };
+
   double _calculateFilteredWeightedOverallHealth() {
     // Hitung hanya komponen yang bobotnya > 0
     double weightedSum = 0;
@@ -86,7 +99,11 @@ class _LoriDetailScreenState extends State<LoriDetailScreen> {
 
     for (final k in komponenList) {
       final name = k['name'] as String;
-      final weight = _dataStore.getKomponenWeight(widget.loriName, name);
+      // Use saved weight if present, otherwise fallback to default spreadsheet weight
+      double weight = _dataStore.getKomponenWeight(widget.loriName, name);
+      if (weight <= 0) {
+        weight = _defaultKomponenWeights[name] ?? 0.0;
+      }
       if (weight <= 0) continue;
       final health = _dataStore.getComponentHealth(widget.loriName, name);
       weightedSum += health * weight;
@@ -100,7 +117,10 @@ class _LoriDetailScreenState extends State<LoriDetailScreen> {
   List<Map<String, dynamic>> get _komponenWeightedList {
     return komponenList.map((k) {
       final name = k['name'] as String;
-      final weight = _dataStore.getKomponenWeight(widget.loriName, name);
+      double weight = _dataStore.getKomponenWeight(widget.loriName, name);
+      if (weight <= 0) {
+        weight = _defaultKomponenWeights[name] ?? 0.0;
+      }
       final health = _dataStore.getComponentHealth(widget.loriName, name);
       final total = weight > 0 ? (health * weight / 100) : 0.0;
       return {

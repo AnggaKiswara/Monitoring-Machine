@@ -618,7 +618,7 @@ module.exports.submitInspection = async (req, res) => {
         wSum += nilai * weight;
         wTotal += weight;
       }
-      return wTotal > 0 ? Math.round((wSum / wTotal) * 100) / 100 : null;
+      return wTotal > 0 ? Math.round((wSum / 100) * 100) / 100 : null;
     })();
 
     const fallbackHealth =

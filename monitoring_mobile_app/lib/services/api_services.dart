@@ -567,6 +567,7 @@ class ApiServices {
     required String pic,
     String? keterangan,
     required List<Map<String, dynamic>> komponenConditions,
+    double? healthOverall,
   }) async {
     final headers = await _getHeaders();
 
@@ -575,15 +576,20 @@ class ApiServices {
     print('PIC: $pic');
     print('Komponen count: ${komponenConditions.length}');
 
+    final body = <String, dynamic>{
+      'tanggal_inspeksi': tanggalInspeksi,
+      'pic': pic,
+      'keterangan': keterangan,
+      'komponen_conditions': komponenConditions,
+    };
+    if (healthOverall != null) {
+      body['health_overall'] = healthOverall;
+    }
+
     final response = await http.post(
       Uri.parse('$baseUrl/machines/$machineId/inspection'),
       headers: headers,
-      body: json.encode({
-        'tanggal_inspeksi': tanggalInspeksi,
-        'pic': pic,
-        'keterangan': keterangan,
-        'komponen_conditions': komponenConditions,
-      }),
+      body: json.encode(body),
     );
 
     print('=== SUBMIT INSPECTION RESPONSE ===');

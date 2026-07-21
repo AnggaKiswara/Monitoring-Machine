@@ -118,7 +118,7 @@ class _LoriDetailScreenState extends State<LoriDetailScreen> {
 
     loriData['submitted'] = true;
     loriData['submittedAt'] = DateTime.now();
-    loriData['overallHealth'] = _calculateOverallHealth();
+    loriData['overallHealth'] = _calculateFilteredWeightedOverallHealth();
 
     _saveDataToStore();
 
@@ -129,8 +129,8 @@ class _LoriDetailScreenState extends State<LoriDetailScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Data Berhasil Disimpan'),
-        content: const Text(
-          'Semua data inspeksi untuk Lori ini telah disimpan.',
+        content: Text(
+          'Overall Health: ${loriData['overallHealth'].toStringAsFixed(1)}%',
         ),
         actions: [
           TextButton(

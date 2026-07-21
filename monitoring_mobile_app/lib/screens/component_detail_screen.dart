@@ -31,16 +31,24 @@ class _ComponentDetailScreenState extends State<ComponentDetailScreen> {
   bool _weightInitialized = false;
 
   // ✅ Mapping nama komponen -> bobot default sesuai spreadsheet
+  // Catatan: nama baru sesuai spreadsheet, sedangkan nama lama tetap dipertahankan
+  // dengan bobot 0 agar data tersimpan lama tidak rusak saat migrasi nama komponen.
   static const Map<String, double> _defaultWeights = {
-    'Roda': 13.0,
-    'Bushing': 10.0,
-    'Bearing': 10.0,
+    'Body': 25.0,
+    'Body samping': 0.0,
+    'Body depan belakang': 0.0,
     'Siku': 5.0,
-    'Body samping': 25.0,
-    'Body depan belakang': 25.0,
-    'Hook': 3.0,
     'Steam Spreader': 7.0,
-    'Frame': 2.0,
+    'Chasis': 25.0,
+    'Hock': 3.0,
+    'Hook': 0.0,
+    'Cover Roda': 2.0,
+    'Roda': 13.0,
+    'Lantai': 20.0,
+    // Legacy aliases for backward compatibility
+    'Bushing': 0.0,
+    'Bearing': 0.0,
+    'Frame': 0.0,
     'Axle': 0.0,
     'Side Body': 0.0,
     'Front & Back Body': 0.0,
@@ -56,66 +64,60 @@ class _ComponentDetailScreenState extends State<ComponentDetailScreen> {
 
   void _initializeParameters() {
     final Map<String, List<Map<String, dynamic>>> componentParameters = {
-      'Wheels': [
-        {'name': 'Visual Condition', 'value': '', 'maxValue': 100, 'unit': '%'},
-        {'name': 'Kebulatan', 'value': '', 'maxValue': 100, 'unit': '%'},
-        {'name': 'Retakan', 'value': '', 'maxValue': 100, 'unit': '%'},
-        {'name': 'Celungan', 'value': '', 'maxValue': 100, 'unit': '%'},
-      ],
-      'Bushing': [
-        {'name': 'Visual Condition', 'value': '', 'maxValue': 100, 'unit': '%'},
-        {'name': 'Aus', 'value': '', 'maxValue': 100, 'unit': '%'},
-        {'name': 'Kelonggaran', 'value': '', 'maxValue': 100, 'unit': '%'},
-      ],
-      'Bearing': [
-        {'name': 'Visual Condition', 'value': '', 'maxValue': 100, 'unit': '%'},
-        {'name': 'Suhu', 'value': '', 'maxValue': 100, 'unit': '°C'},
-        {'name': 'Getaran', 'value': '', 'maxValue': 100, 'unit': 'mm/s'},
-        {'name': 'Kebisingan', 'value': '', 'maxValue': 100, 'unit': 'dB'},
-      ],
-      'Axle': [
-        {'name': 'Visual Condition', 'value': '', 'maxValue': 100, 'unit': '%'},
-        {'name': 'Kelurusan', 'value': '', 'maxValue': 100, 'unit': '%'},
-        {'name': 'Aus', 'value': '', 'maxValue': 100, 'unit': '%'},
-      ],
-      'Side Body': [
+      'Body': [
         {'name': 'Visual Condition', 'value': '', 'maxValue': 100, 'unit': '%'},
         {'name': 'Karat', 'value': '', 'maxValue': 100, 'unit': '%'},
         {'name': 'Penyok', 'value': '', 'maxValue': 100, 'unit': '%'},
       ],
-      'Front & Back Body': [
+      'Siku': [
         {'name': 'Visual Condition', 'value': '', 'maxValue': 100, 'unit': '%'},
-        {'name': 'Karat', 'value': '', 'maxValue': 100, 'unit': '%'},
+        {'name': 'Retak', 'value': '', 'maxValue': 100, 'unit': '%'},
         {'name': 'Kekakuan', 'value': '', 'maxValue': 100, 'unit': '%'},
-      ],
-      'Hook': [
-        {'name': 'Visual Condition', 'value': '', 'maxValue': 100, 'unit': '%'},
-        {'name': 'Aus', 'value': '', 'maxValue': 100, 'unit': '%'},
-        {'name': 'Deformasi', 'value': '', 'maxValue': 100, 'unit': '%'},
       ],
       'Steam Spreader': [
         {'name': 'Visual Condition', 'value': '', 'maxValue': 100, 'unit': '%'},
         {'name': 'Tekanan', 'value': '', 'maxValue': 100, 'unit': 'bar'},
         {'name': 'Suhu', 'value': '', 'maxValue': 100, 'unit': '°C'},
       ],
-      'Frame': [
+      'Chasis': [
+        {'name': 'Visual Condition', 'value': '', 'maxValue': 100, 'unit': '%'},
+        {'name': 'Kelurusan', 'value': '', 'maxValue': 100, 'unit': '%'},
+        {'name': 'Aus', 'value': '', 'maxValue': 100, 'unit': '%'},
+      ],
+      'Hook': [
+        {'name': 'Visual Condition', 'value': '', 'maxValue': 100, 'unit': '%'},
+        {'name': 'Aus', 'value': '', 'maxValue': 100, 'unit': '%'},
+        {'name': 'Deformasi', 'value': '', 'maxValue': 100, 'unit': '%'},
+      ],
+      'Cover Roda': [
+        {'name': 'Visual Condition', 'value': '', 'maxValue': 100, 'unit': '%'},
+        {'name': 'Kebulatan', 'value': '', 'maxValue': 100, 'unit': '%'},
+        {'name': 'Retakan', 'value': '', 'maxValue': 100, 'unit': '%'},
+        {'name': 'Celungan', 'value': '', 'maxValue': 100, 'unit': '%'},
+      ],
+      'Roda': [
+        {'name': 'Visual Condition', 'value': '', 'maxValue': 100, 'unit': '%'},
+        {'name': 'Kebulatan', 'value': '', 'maxValue': 100, 'unit': '%'},
+        {'name': 'Retakan', 'value': '', 'maxValue': 100, 'unit': '%'},
+        {'name': 'Celungan', 'value': '', 'maxValue': 100, 'unit': '%'},
+      ],
+      'Lantai': [
         {'name': 'Visual Condition', 'value': '', 'maxValue': 100, 'unit': '%'},
         {'name': 'Karat', 'value': '', 'maxValue': 100, 'unit': '%'},
-        {'name': 'Retak Las', 'value': '', 'maxValue': 100, 'unit': '%'},
-        {'name': 'Kelurusan', 'value': '', 'maxValue': 100, 'unit': '%'},
+        {'name': 'Penyok', 'value': '', 'maxValue': 100, 'unit': '%'},
       ],
     };
 
     _parameters =
         componentParameters[widget.componentName] ??
-        [
-          {
-            'name': 'Visual Condition',
-            'value': '',
-            'maxValue': 100,
-            'unit': '%',
-          },
-        ];
+            [
+              {
+                'name': 'Visual Condition',
+                'value': '',
+                'maxValue': 100,
+                'unit': '%',
+              },
+            ];
 
     for (var param in _parameters) {
       _controllers[param['name']] = TextEditingController();

@@ -3,8 +3,10 @@ import { useAuth } from '../auth/AuthContext';
 import { API } from '../lib/api';
 import { Card, Button } from '../components/ui';
 import { useToast } from '../components/Toast';
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
 
 const ORIGIN = 'http://103.93.135.108:3000';
+const COLORS = ['#22c55e', '#f59e0b', '#ef4444'];
 
 export default function Reports() {
   const { token } = useAuth();
@@ -13,21 +15,19 @@ export default function Reports() {
   const [factories, setFactories] = useState([]);
   const [stations, setStations] = useState([]);
   const [machines, setMachines] = useState([]);
+  const [machineHistories, setMachineHistories] = useState({});
 
   const [selFactory, setSelFactory] = useState('');
-  const [selMachines, setSelMachines] = useState([]); // array id_mesin
-  const [dateFrom, setDateFrom] = useState('');
-  const [dateTo, setDateTo] = useState('');
 
-  const [cols, setCols] = useState({ info: true, komponen: true, foto: true, health: true });
-  const [result, setResult] = useState(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [reportLoading, setReportLoading] = useState(false);
 
   useEffect(() => {
     API.getFactories(token).then((r) => {
       const f = r.data ?? r;
       setFactories(f);
       if (f.length) setSelFactory(String(f[0].id_factory));
+      setLoading(false);
     });
   }, [token]);
 
@@ -35,14 +35,11 @@ export default function Reports() {
     if (!selFactory) {
       setStations([]);
       setMachines([]);
-      setSelMachines([]);
+      setMachineHistories({});
       return;
     }
+    setLoading(true);
     API.getStations(token, selFactory).then((r) => setStations(r.data ?? r));
-  }, [selFactory, token]);
-
-  useEffect(() => {
-    if (!selFactory) return;
     (async () => {
       const st = await API.getStations(token, selFactory);
       const stationList = st.data ?? st;
@@ -52,203 +49,234 @@ export default function Reports() {
         all = all.concat(m.data ?? m);
       }
       setMachines(all);
-      setSelMachines(all.map((x) => String(x.id_mesin)));
+      const histories = {};
+      for (const m of all) {
+        try {
+          const h = await API.getServiceHistory(token, m.id_mesin, 1, 0);
+          histories[m.id_mesin] = h.data ?? h;
+        } catch {
+          histories[m.id_mesin] = [];
+        }
+      }
+      setMachineHistories(histories);
+      setLoading(false);
     })();
   }, [selFactory, token]);
 
-  function toggleMachine(id) {
-    setSelMachines((cur) =>
-      cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id]
-    );
+  const total = machines.length;
+  const withInspection = machines.filter((m) => (machineHistories[m.id_mesin] || []).length > 0).length;
+  const withoutInspection = total - withInspection;
+  const avgHealth = total ? Math.round(machines.reduce((t, m) => t + Number(m.health_mesin || 0), 0) / total) : 0;
+
+  const excellent = machines.filter((m) => Number(m.health_mesin) >= 95).length;
+  const good = machines.filter((m) => { const h = Number(m.health_mesin); return h >= 86 && h <= 94; }).length;
+  const satisfactory = machines.filter((m) => { const h = Number(m.health_mesin); return h >= 61 && h <= 85; }).length;
+  const poor = machines.filter((m) => Number(m.health_mesin) <= 60).length;
+
+  const pieData = [
+    { name: 'Excellent', value: excellent },
+    { name: 'Good', value: good },
+    { name: 'Satisfactory', value: satisfactory },
+    { name: 'Poor', value: poor },
+  ];
+
+  function getHealthColor(h) {
+    if (h >= 95) return 'text-green-600';
+    if (h >= 86) return 'text-teal-600';
+    if (h >= 61) return 'text-orange-500';
+    return 'text-red-600';
+  }
+  function getHealthBg(h) {
+    if (h >= 95) return 'bg-green-50';
+    if (h >= 86) return 'bg-teal-50';
+    if (h >= 61) return 'bg-orange-50';
+    return 'bg-red-50';
   }
 
   async function buildReport() {
-    setLoading(true);
+    setReportLoading(true);
     try {
-      const ids = selMachines.filter((id) => machines.some((m) => String(m.id_mesin) === id));
-      const data = [];
-      for (const id of ids) {
-        const m = machines.find((x) => String(x.id_mesin) === id);
-        // ambil semua history lori
-        const hist = await API.getServiceHistory ? null : null;
-        // pakai endpoint history per machine
-        const hres = await fetch(
-          `${ORIGIN}/api/machines/${id}/history?limit=200`,
-          { headers: { Authorization: `Bearer ${token}` } }
-        ).then((r) => r.json());
-        const rows = (hres?.data || []).filter((h) => {
-          if (dateFrom && h.service_date < dateFrom) return false;
-          if (dateTo && h.service_date > dateTo) return false;
-          return true;
-        });
-        // ambil detail+foto per inspeksi
+      const rows = [];
+      for (const m of machines) {
+        const hist = machineHistories[m.id_mesin] || [];
+        if (!hist.length) continue;
+        const history = await API.getServiceHistory(token, m.id_mesin, 50, 0);
+        const inspections = history.data ?? history;
         const details = [];
-        for (const h of rows) {
-          const d = await API.getInspectionDetail(token, id, h.id_service);
-          details.push(d?.data ?? d);
+        for (const ins of inspections) {
+          try {
+            const d = await API.getInspectionDetail(token, m.id_mesin, ins.id_service);
+            details.push(d.data ?? d);
+          } catch {
+            details.push({ ...ins, komponen: [], photos: [] });
+          }
         }
-        data.push({ machine: m, details });
+        rows.push({ machine: m, inspections: details });
       }
-      setResult(data);
+      setReportRows(rows);
     } catch (e) {
       toast.notify(e.message, 'error');
     } finally {
-      setLoading(false);
+      setReportLoading(false);
     }
   }
 
+  const [reportRows, setReportRows] = useState([]);
+
   return (
     <div>
-      <div className="flex items-center justify-between mb-6 no-print">
+      <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-extrabold text-navy">Laporan Inspeksi</h1>
-          <p className="text-indigo-500 text-sm">Pilih pabrik & machine, lalu cetak</p>
+          <h1 className="text-2xl font-extrabold text-navy">Laporan</h1>
+          <p className="text-indigo-500 text-sm">Ringkasan kondisi lori & service</p>
         </div>
+        <Button onClick={buildReport} disabled={reportLoading || !machines.length}>
+          {reportLoading ? 'Membuat...' : 'Tampilkan Pratinjau'}
+        </Button>
       </div>
 
-      <Card className="p-5 mb-4 no-print space-y-4">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <label className="block">
-            <span className="text-sm font-medium text-navy/70">Pabrik</span>
-            <select
-              className="mt-1 w-full px-3 py-2.5 rounded-xl bg-white/50 border border-white/60 focus:outline-none focus:ring-2 focus:ring-brand/40 backdrop-blur"
-              value={selFactory}
-              onChange={(e) => setSelFactory(e.target.value)}
-            >
-              <option value="">— Pilih Pabrik —</option>
-              {factories.map((f) => (
-                <option key={f.id_factory} value={String(f.id_factory)}>
-                  {f.nama_factory}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="block">
-            <span className="text-sm font-medium text-navy/70">Dari</span>
-            <input
-              type="date"
-              value={dateFrom}
-              onChange={(e) => setDateFrom(e.target.value)}
-              className="mt-1 w-full px-3 py-2.5 rounded-xl bg-white/50 border border-white/60 focus:outline-none focus:ring-2 focus:ring-brand/40 backdrop-blur"
-            />
-          </label>
-          <label className="block">
-            <span className="text-sm font-medium text-navy/70">Sampai</span>
-            <input
-              type="date"
-              value={dateTo}
-              onChange={(e) => setDateTo(e.target.value)}
-              className="mt-1 w-full px-3 py-2.5 rounded-xl bg-white/50 border border-white/60 focus:outline-none focus:ring-2 focus:ring-brand/40 backdrop-blur"
-            />
-          </label>
-        </div>
-
-        <div>
-          <p className="text-sm font-medium text-navy/70 mb-2">Pilih Machine (Lori)</p>
-          <div className="flex flex-wrap gap-2 max-h-40 overflow-y-auto">
-            {machines.map((m) => (
-              <label
-                key={m.id_mesin}
-                className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/40 border border-white/50 text-sm cursor-pointer"
-              >
-                <input
-                  type="checkbox"
-                  checked={selMachines.includes(String(m.id_mesin))}
-                  onChange={() => toggleMachine(String(m.id_mesin))}
-                />
-                {m.nama_mesin}
-              </label>
-            ))}
-            {!machines.length && <span className="text-navy/40 text-sm">Pilih pabrik dulu.</span>}
-          </div>
-        </div>
-
-        <div>
-          <p className="text-sm font-medium text-navy/70 mb-2">Kolom yang dicetak</p>
-          <div className="flex flex-wrap gap-4 text-sm">
-            {[
-              ['info', 'Info Inspeksi'],
-              ['komponen', 'Komponen'],
-              ['foto', 'Foto'],
-              ['health', 'Health'],
-            ].map(([k, label]) => (
-              <label key={k} className="flex items-center gap-2 cursor-pointer">
-                <input type="checkbox" checked={cols[k]} onChange={() => setCols({ ...cols, [k]: !cols[k] })} />
-                {label}
-              </label>
-            ))}
-          </div>
-        </div>
-
-        <div className="flex gap-2">
-          <Button onClick={buildReport} disabled={loading || !selMachines.length}>
-            {loading ? 'Membuat...' : 'Tampilkan Pratinjau'}
-          </Button>
-          <Button variant="outline" onClick={() => window.print()} disabled={!result}>
-            Cetak
-          </Button>
-        </div>
-      </Card>
-
-      {/* PRINT AREA */}
-      {result && (
-        <div className="print-area space-y-6">
-          {result.map((sec) => (
-            <div key={sec.machine.id_mesin} className="bg-white rounded-2xl p-5 shadow print-section">
-              <h2 className="text-lg font-bold text-navy mb-1">
-                {sec.machine.nama_mesin} ({sec.machine.kode_mesin})
-              </h2>
-              <p className="text-sm text-gray-500 mb-3">
-                {factories.find((f) => String(f.id_factory) === selFactory)?.nama_factory}
+      {!selFactory ? (
+        <Card className="p-6 mb-4">
+          <p className="text-navy/60">Pilih pabrik terlebih dahulu untuk melihat kondisi lori.</p>
+        </Card>
+      ) : loading ? (
+        <Card className="p-6 mb-4"><p className="text-navy/60">Memuat data mesin...</p></Card>
+      ) : (
+        <>
+          {/* Overall condition cards */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+            <Card className={`p-5 ${getHealthBg(avgHealth)}`}>
+              <p className="text-sm text-navy/60 mb-1">Overall Condition</p>
+              <p className={`text-4xl font-bold ${getHealthColor(avgHealth)}`}>{avgHealth}%</p>
+              <p className="text-xs text-navy/50 mt-1">Rata-rata {total} unit</p>
+            </Card>
+            <Card className="p-5">
+              <p className="text-sm text-navy/60 mb-1">Lori Aktif</p>
+              <p className="text-4xl font-bold text-navy">{withInspection}</p>
+              <p className="text-xs text-navy/50 mt-1">Dari {total} total</p>
+            </Card>
+            <Card className="p-5">
+              <p className="text-sm text-navy/60 mb-1">Perlu Service</p>
+              <p className="text-4xl font-bold text-orange-600">{withoutInspection + poor + satisfactory}</p>
+              <p className="text-xs text-navy/50 mt-1">Tanpa inspeksi + Poor + Satisfactory</p>
+            </Card>
+            <Card className="p-5">
+              <p className="text-sm text-navy/60 mb-1">Rata-rata Service</p>
+              <p className="text-4xl font-bold text-navy">
+                {machines.length ? Math.round(machines.reduce((t, m) => t + ((machineHistories[m.id_mesin] || []).length), 0) / machines.length) : 0}
               </p>
-              {sec.details.map((d) => (
-                <div key={d.id_service} className="mb-4 border-b pb-3">
-                  <div className="flex justify-between text-sm font-medium">
-                    <span>Inspeksi #{d.id_service} · {d.service_date}</span>
-                    {cols.health && <span>Health: {d.health_mesin_after}%</span>}
-                  </div>
-                  {cols.info && (
-                    <p className="text-xs text-gray-600">
-                      Teknisi: {d.teknisi_name || '-'} | {d.description || ''}
-                    </p>
-                  )}
-                  {cols.komponen && d.komponen?.length > 0 && (
-                    <table className="w-full text-xs mt-1 border">
-                      <thead>
-                        <tr className="bg-gray-100">
-                          <th className="text-left p-1">Komponen</th>
-                          <th className="text-left p-1">Kondisi</th>
-                          <th className="text-left p-1">Nilai</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {d.komponen.map((c, i) => (
-                          <tr key={i}>
-                            <td className="p-1">{c.nama_komponen}</td>
-                            <td className="p-1">{c.kondisi}</td>
-                            <td className="p-1">{c.nilai}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  )}
-                  {cols.foto && d.photos?.length > 0 && (
-                    <div className="flex flex-wrap gap-2 mt-2">
-                      {d.photos.map((p, i) => (
-                        <img
-                          key={p.id_photo || i}
-                          src={p.photo_path.startsWith('http') ? p.photo_path : `${ORIGIN}/${p.photo_path}`}
-                          className="w-24 h-24 object-cover border"
-                        />
+              <p className="text-xs text-navy/50 mt-1">Inspeksi per unit</p>
+            </Card>
+          </div>
+
+          {/* Chart + breakdown */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4">
+            <Card className="p-5 lg:col-span-2">
+              <p className="text-sm font-medium text-navy/70 mb-2">Distribusi Kondisi Lori</p>
+              <div className="h-64">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie data={pieData} dataKey="value" nameKey="name" innerRadius={55} outerRadius={90} paddingAngle={4}>
+                      {pieData.map((_, i) => (
+                        <Cell key={i} fill={COLORS[i % COLORS.length]} />
                       ))}
-                    </div>
-                  )}
+                    </Pie>
+                    <Tooltip />
+                    <Legend />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+            </Card>
+            <Card className="p-5 space-y-3">
+              <p className="text-sm font-medium text-navy/70">Ringkasan</p>
+              {[
+                ['Excellent (≥95%)', excellent, '#22c55e'],
+                ['Good (86-94%)', good, '#14b8a6'],
+                ['Satisfactory (61-85%)', satisfactory, '#f59e0b'],
+                ['Poor (≤60%)', poor, '#ef4444'],
+              ].map(([label, value, color]) => (
+                <div key={label} className="flex items-center justify-between">
+                  <span className="text-sm text-navy/70">{label}</span>
+                  <span className="font-bold" style={{ color }}>{String(value)}</span>
                 </div>
               ))}
-              {!sec.details.length && <p className="text-xs text-gray-400">Tidak ada inspeksi di periode ini.</p>}
+            </Card>
+          </div>
+
+          {/* Machine list cards */}
+          <Card className="p-5 mb-4">
+            <div className="flex items-center justify-between mb-3">
+              <p className="font-bold text-navy">Daftar Lori</p>
+              <span className="text-xs text-navy/50">{machines.length} unit</span>
             </div>
-          ))}
-        </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+              {machines.map((m) => {
+                const health = Number(m.health_mesin || 0);
+                const status = health >= 95 ? 'Baik' : health >= 86 ? 'Good' : health >= 61 ? 'Layak' : 'Perlu Service';
+                const inspection = (machineHistories[m.id_mesin] || [])[0];
+                return (
+                  <Card key={m.id_mesin} className="p-4">
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <p className="font-bold text-navy">{m.nama_mesin}</p>
+                        <p className="text-sm text-navy/60">{m.kode_mesin}</p>
+                      </div>
+                      <span className={`px-2 py-1 rounded-lg text-xs font-semibold ${getHealthBg(health)} ${getHealthColor(health)}`}>
+                        {status}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between mt-3">
+                      <span className="text-xs text-navy/50">Kesehatan: {health}%</span>
+                      <span className="text-xs text-navy/50">
+                        {inspection ? `Inspeksi: ${inspection.service_date}` : 'Tanpa inspeksi'}
+                      </span>
+                    </div>
+                  </Card>
+                );
+              })}
+              {!machines.length && <p className="text-navy/50 col-span-full">Belum ada lori.</p>}
+            </div>
+          </Card>
+
+          {/* Report preview table */}
+          {reportRows.length > 0 && (
+            <Card className="p-5">
+              <div className="flex items-center justify-between mb-3">
+                <p className="font-bold text-navy">Pratinjau Laporan</p>
+                <Button variant="outline" onClick={() => window.print()}>Cetak</Button>
+              </div>
+              <div className="space-y-4">
+                {reportRows.map((sec) => (
+                  <div key={sec.machine.id_mesin} className="border rounded-xl p-4">
+                    <p className="font-bold text-navy mb-1">{sec.machine.nama_mesin} ({sec.machine.kode_mesin})</p>
+                    <div className="space-y-2">
+                      {sec.inspections.map((ins) => (
+                        <div key={ins.id_service} className="grid grid-cols-2 md:grid-cols-4 gap-2 text-sm">
+                          <div>
+                            <p className="text-navy/50 text-xs">Tanggal</p>
+                            <p className="font-medium text-navy">{ins.service_date || '-'}</p>
+                          </div>
+                          <div>
+                            <p className="text-navy/50 text-xs">Before</p>
+                            <p className="font-medium text-navy">{ins.health_mesin_before ?? 0}%</p>
+                          </div>
+                          <div>
+                            <p className="text-navy/50 text-xs">After</p>
+                            <p className="font-medium text-navy">{ins.health_mesin_after ?? 0}%</p>
+                          </div>
+                          <div>
+                            <p className="text-navy/50 text-xs">Teknisi</p>
+                            <p className="font-medium text-navy">{ins.teknisi_name || '-'}</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </Card>
+          )}
+        </>
       )}
     </div>
   );

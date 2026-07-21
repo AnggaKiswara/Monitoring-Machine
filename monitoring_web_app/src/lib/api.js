@@ -110,6 +110,8 @@ export const API = {
   // Inspections (global)
   getInspections: (token, limit = 50, offset = 0) =>
     apiRequest(`/service-history/global?limit=${limit}&offset=${offset}`, { token }),
+  getServiceHistory: (token, machineId, limit = 10, offset = 0) =>
+    apiRequest(`/machines/${machineId}/history?limit=${limit}&offset=${offset}`, { token }),
   getInspectionDetail: (token, machineId, serviceId) =>
     apiRequest(`/machines/${machineId}/inspection/${serviceId}`, { token }),
   updateInspection: (token, machineId, serviceId, body) =>

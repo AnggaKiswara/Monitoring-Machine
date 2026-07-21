@@ -24,15 +24,14 @@ class _LoriDetailScreenState extends State<LoriDetailScreen> {
   final DataStore _dataStore = DataStore();
 
   final List<Map<String, dynamic>> komponenList = [
-    {'name': 'Roda', 'icon': Icons.circle},
-    {'name': 'Bushing', 'icon': Icons.circle},
-    {'name': 'Bearing', 'icon': Icons.circle},
+    {'name': 'Body', 'icon': Icons.circle},
     {'name': 'Siku', 'icon': Icons.circle},
-    {'name': 'Body samping', 'icon': Icons.circle},
-    {'name': 'Body depan belakang', 'icon': Icons.circle},
-    {'name': 'Hook', 'icon': Icons.circle},
     {'name': 'Steam Spreader', 'icon': Icons.circle},
-    {'name': 'Frame', 'icon': Icons.circle},
+    {'name': 'Chasis', 'icon': Icons.circle},
+    {'name': 'Hook', 'icon': Icons.circle},
+    {'name': 'Cover Roda', 'icon': Icons.circle},
+    {'name': 'Roda', 'icon': Icons.circle},
+    {'name': 'Lantai', 'icon': Icons.circle},
   ];
 
   @override

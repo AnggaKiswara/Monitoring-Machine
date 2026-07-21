@@ -228,10 +228,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (context) => StationListScreen(
-              factoryName: name,
-              factoryId: factoryId,
-            ),
+            builder: (context) =>
+                StationListScreen(factoryName: name, factoryId: factoryId),
           ),
         );
       },
@@ -359,7 +357,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         BottomNavigationBarItem(
           icon: Icon(Icons.list_outlined),
           activeIcon: Icon(Icons.list),
-          label: 'Station',
+          label: 'Services',
         ),
         BottomNavigationBarItem(
           icon: Icon(Icons.notifications_outlined),
@@ -390,9 +388,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     } else if (index == 3) {
       Navigator.push(
         context,
-        MaterialPageRoute(
-          builder: (context) => const GlobalHistoryScreen(),
-        ),
+        MaterialPageRoute(builder: (context) => const GlobalHistoryScreen()),
       );
     }
   }

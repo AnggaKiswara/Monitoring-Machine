@@ -25,6 +25,10 @@ class _StationListScreenState extends State<StationListScreen> {
   String? _error;
   bool _canManage = false;
 
+  // Cache overall health per station dari data machine
+  final Map<int, double> _stationHealth = {};
+  bool _calculatingHealth = false;
+
   @override
   void initState() {
     super.initState();
@@ -45,7 +49,6 @@ class _StationListScreenState extends State<StationListScreen> {
       });
 
       print('=== LOADING STATIONS FOR FACTORY ${widget.factoryId} ===');
-      // ✅ GANTI: Pakai getStationsByFactory()
       final data = await ApiServices.getStationsByFactory(
         factoryId: widget.factoryId,
       );
@@ -56,12 +59,52 @@ class _StationListScreenState extends State<StationListScreen> {
         _stations = data;
         _loading = false;
       });
+
+      // Hitung ulang health station dari data machine secara realtime
+      await _loadStationHealth();
     } catch (e) {
       print('Error loading stations: $e');
       setState(() {
         _error = e.toString();
         _loading = false;
       });
+    }
+  }
+
+  Future<void> _loadStationHealth() async {
+    if (_calculatingHealth) return;
+    setState(() => _calculatingHealth = true);
+
+    try {
+      final Map<int, double> healthMap = {};
+      for (final station in _stations) {
+        final stationId = _toInt(station['id_station']);
+        try {
+          final machines = await ApiServices.getMachines(stationId: stationId);
+          final machineList = machines.cast<Map<String, dynamic>>();
+          if (machineList.isEmpty) {
+            healthMap[stationId] = 0.0;
+            continue;
+          }
+          double sum = 0;
+          for (final m in machineList) {
+            sum += _toDouble(m['health_mesin']);
+          }
+          healthMap[stationId] = sum / machineList.length;
+        } catch (_) {
+          healthMap[stationId] = 0.0;
+        }
+      }
+
+      if (mounted) {
+        setState(() {
+          _stationHealth.clear();
+          _stationHealth.addAll(healthMap);
+          _calculatingHealth = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _calculatingHealth = false);
     }
   }
 
@@ -295,13 +338,10 @@ class _StationListScreenState extends State<StationListScreen> {
   }
 
   Widget _buildStationCard(String name, double health, IconData icon, int stationId) {
-    int healthInt = health.toInt();
-    Color healthColor = healthInt >= 90
-        ? Colors.green
-        : (healthInt >= 70 ? Colors.orange : Colors.red);
-    String status = healthInt >= 90
-        ? 'Excellent'
-        : (healthInt >= 70 ? 'Good' : 'Attention');
+    final realHealth = _stationHealth[stationId] ?? health;
+    final healthInt = realHealth.toInt();
+    final healthColor = _getHealthColor(healthInt);
+    final status = _getHealthLabel(healthInt);
 
     return GestureDetector(
       onTap: () {
@@ -311,20 +351,20 @@ class _StationListScreenState extends State<StationListScreen> {
             builder: (context) =>
                 MachineListScreen(stationName: name, stationId: stationId),
           ),
-        );
+        ).then((_) => _loadStationHealth());
       },
       child: Container(
         margin: const EdgeInsets.only(bottom: 12),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(14),
           border: Border.all(color: Colors.grey.shade200),
           boxShadow: [
             BoxShadow(
-              color: Colors.grey.withOpacity(0.08),
+              color: Colors.grey.withOpacity(0.06),
               spreadRadius: 1,
-              blurRadius: 8,
+              blurRadius: 6,
               offset: const Offset(0, 2),
             ),
           ],
@@ -332,42 +372,42 @@ class _StationListScreenState extends State<StationListScreen> {
         child: Row(
           children: [
             Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.grey[100],
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Icon(icon, color: const Color(0xFF1a2332), size: 24),
-            ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Text(
-                name,
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                  color: Color(0xFF1a2332),
-                ),
-              ),
-            ),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              width: 38,
+              height: 38,
+              alignment: Alignment.center,
               decoration: BoxDecoration(
                 color: healthColor.withOpacity(0.12),
-                borderRadius: BorderRadius.circular(20),
+                borderRadius: BorderRadius.circular(10),
               ),
-              child: Text(
-                '$healthInt%',
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.bold,
-                  color: healthColor,
-                ),
+              child: Icon(icon, color: healthColor, size: 20),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    name,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF1a2332),
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    '$healthInt%',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                      color: healthColor,
+                    ),
+                  ),
+                ],
               ),
             ),
-            const SizedBox(width: 6),
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               decoration: BoxDecoration(
                 color: healthColor.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(8),
@@ -386,13 +426,27 @@ class _StationListScreenState extends State<StationListScreen> {
                 icon: const Icon(Icons.delete_outline, color: Colors.red),
                 tooltip: 'Hapus station',
                 constraints: const BoxConstraints(),
-                padding: const EdgeInsets.all(6),
+                padding: const EdgeInsets.all(4),
                 onPressed: () => _confirmDeleteStation(stationId, name),
               ),
           ],
         ),
       ),
     );
+  }
+
+  Color _getHealthColor(int health) {
+    if (health >= 95) return Colors.green;
+    if (health >= 86) return Colors.teal;
+    if (health >= 61) return Colors.orange;
+    return Colors.red;
+  }
+
+  String _getHealthLabel(int health) {
+    if (health >= 95) return 'Excellent';
+    if (health >= 86) return 'Good';
+    if (health >= 61) return 'Satisfactory';
+    return 'Poor';
   }
 
   Widget _buildBottomNavigationBar() {
@@ -448,6 +502,14 @@ class _StationListScreenState extends State<StationListScreen> {
     if (v is int) return v;
     if (v is double) return v.toInt();
     if (v is String) return int.tryParse(v) ?? 0;
+    return 0;
+  }
+
+  double _toDouble(dynamic value) {
+    if (value == null) return 0;
+    if (value is double) return value;
+    if (value is int) return value.toDouble();
+    if (value is String) return double.tryParse(value) ?? 0;
     return 0;
   }
 

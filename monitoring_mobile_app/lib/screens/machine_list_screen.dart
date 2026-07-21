@@ -195,7 +195,43 @@ class _MachineListScreenState extends State<MachineListScreen> {
                     ],
                   ),
                 ),
-                const SizedBox(height: 20),
+                if (_canAddLori)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 12, 20, 4),
+                    child: SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton.icon(
+                        onPressed: () async {
+                          final result = await Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => AddMachineScreen(
+                                stationId: widget.stationId,
+                                stationName: widget.stationName,
+                              ),
+                            ),
+                          );
+                          if (result == true) {
+                            _loadLoriList();
+                          }
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF2196F3),
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        icon: const Icon(Icons.add, size: 18),
+                        label: const Text(
+                          'Tambah Lori',
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                    ),
+                  ),
+                const SizedBox(height: 10),
                 Expanded(
                   child: _loriList.isEmpty
                       ? Center(
@@ -235,31 +271,6 @@ class _MachineListScreenState extends State<MachineListScreen> {
                 const SizedBox(height: 12),
               ],
             ),
-      floatingActionButton: _canAddLori
-          ? FloatingActionButton.extended(
-              onPressed: () async {
-                final result = await Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => AddMachineScreen(
-                      stationId: widget.stationId,
-                      stationName: widget.stationName,
-                    ),
-                  ),
-                );
-
-                if (result == true) {
-                  _loadLoriList();
-                }
-              },
-              backgroundColor: const Color(0xFF2196F3),
-              icon: const Icon(Icons.add, color: Colors.white),
-              label: const Text(
-                'Tambah Lori',
-                style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-              ),
-            )
-          : null,
     );
   }
 

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../services/api_services.dart';
 import '../app_notify.dart';
-import 'machine_detail_screen.dart';
+import 'informasi_service_history_screen.dart';
 
 class InformasiServiceScreen extends StatefulWidget {
   const InformasiServiceScreen({super.key});
@@ -152,7 +152,7 @@ class _InformasiServiceScreenState extends State<InformasiServiceScreen>
             Navigator.push(
               context,
               MaterialPageRoute(
-                builder: (context) => MachineDetailScreen(
+                builder: (context) => InformasiServiceHistoryScreen(
                   machineId: _toInt(machine['id_mesin'] ?? machine['id']),
                   machineName: name,
                 ),

@@ -40,10 +40,12 @@ module.exports = {
   getOne: crud.getOne,
   update: crud.update,
   remove: crud.remove,
-  uploadMiddleware, // ← dipakai di machine.routes.js (upload foto inspeksi)
+  uploadMiddleware,
   updateInspection,
   deleteInspection,
   deletePhoto,
+  getLoriConditions,
+  createLoriCondition,
 };
 
 // Template komponen default untuk setiap Lori baru
@@ -821,6 +823,63 @@ async function deletePhoto(req, res) {
     }
     await db.query("DELETE FROM inspection_photo WHERE id_photo = ?", [photoId]);
     res.json({ success: true, message: "Foto dihapus" });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+}
+
+// GET - Get lorry conditions
+async function getLoriConditions(req, res) {
+  try {
+    const { id } = req.params;
+    const { limit = 50, offset = 0 } = req.query;
+
+    const [rows] = await db.query(
+      `SELECT lc.id_condition, lc.id_service, lc.id_mesin, lc.health_overall, lc.classification, lc.created_at,
+              sh.service_type, sh.description, u.nama_lengkap as teknisi_name
+       FROM lori_condition lc
+       LEFT JOIN service_history sh ON sh.id_service = lc.id_service
+       LEFT JOIN user_account u ON u.id_user = sh.id_user
+       WHERE lc.id_mesin = ?
+       ORDER BY lc.created_at DESC
+       LIMIT ? OFFSET ?`,
+      [id, parseInt(limit), parseInt(offset)]
+    );
+
+    res.json({ success: true, data: rows });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+}
+
+// POST - Create lorry condition
+async function createLoriCondition(req, res) {
+  try {
+    const { id } = req.params;
+    const { health_overall, classification, id_service } = req.body;
+
+    if (health_overall === undefined || health_overall === null || health_overall === '') {
+      return res.status(400).json({ success: false, message: "health_overall wajib diisi" });
+    }
+
+    const finalClassification = classification || _classifyHealth(Number(health_overall));
+
+    const [result] = await db.query(
+      `INSERT INTO lori_condition (id_service, id_mesin, health_overall, classification)
+       VALUES (?, ?, ?, ?)`,
+      [id_service || null, id, Number(health_overall), finalClassification]
+    );
+
+    res.status(201).json({
+      success: true,
+      data: {
+        id_condition: result.insertId,
+        id_service: id_service || null,
+        id_mesin: id,
+        health_overall: Number(health_overall),
+        classification: finalClassification,
+      },
+    });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }

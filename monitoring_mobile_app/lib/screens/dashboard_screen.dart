@@ -384,7 +384,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     if (index == 0) {
       // Already on dashboard
     } else if (index == 1) {
-      Navigator.pushNamed(context, '/submitted_data');
+      Navigator.pushNamed(context, '/informasi_service');
     } else if (index == 2) {
       Navigator.pushNamed(context, '/lori_notifications');
     } else if (index == 3) {

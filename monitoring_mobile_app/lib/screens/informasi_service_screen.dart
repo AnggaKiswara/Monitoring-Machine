@@ -1,77 +1,78 @@
 import 'package:flutter/material.dart';
-import 'lori_detail_screen.dart';
-import '../data_store.dart';
+import '../services/api_services.dart';
+import '../app_notify.dart';
+import 'machine_detail_screen.dart';
 
-class LoriNotificationScreen extends StatefulWidget {
-  const LoriNotificationScreen({super.key});
+class InformasiServiceScreen extends StatefulWidget {
+  const InformasiServiceScreen({super.key});
 
   @override
-  State<LoriNotificationScreen> createState() => _LoriNotificationScreenState();
+  State<InformasiServiceScreen> createState() => _InformasiServiceScreenState();
 }
 
-class _LoriNotificationScreenState extends State<LoriNotificationScreen>
+class _InformasiServiceScreenState extends State<InformasiServiceScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
-  List<Map<String, dynamic>> _allLoris = [];
+  List<dynamic> _machines = [];
   bool _loading = true;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
-    _loadLoris();
+    _loadMachines();
   }
 
-  Future<void> _loadLoris() async {
-    final list = DataStore().getLoriList() ?? [];
-    final loris = list.map((e) {
-      final name = (e['nama_lori'] ?? e['nama_mesin'] ?? e['nama'] ?? 'Lori')
-          .toString();
-      final code = (e['kode_lori'] ?? e['kode_mesin'] ?? e['kode'] ?? '')
-          .toString();
-      return {
-        'name': name,
-        'code': code,
-        'data': e,
-      };
-    }).toList();
-
-    setState(() {
-      _allLoris = loris;
-      _loading = false;
-    });
+  Future<void> _loadMachines() async {
+    try {
+      final list = await ApiServices.getMachines();
+      setState(() {
+        _machines = list;
+        _loading = false;
+      });
+    } catch (e) {
+      setState(() => _loading = false);
+      if (mounted) AppNotify.error(context, 'Gagal memuat data machine: $e');
+    }
   }
 
-  double _getHealth(Map<String, dynamic> lori) {
-    final name = lori['name'];
-    final data = lori['data'];
-    final saved = DataStore().getLoriOverallHealth(name);
-    if (saved > 0) return saved;
-
-    final fromData = data['health_lori'] ?? data['health_mesin'];
-    if (fromData != null) return (fromData is num) ? fromData.toDouble() : 0.0;
-    return 0;
+  double _getHealth(Map<String, dynamic> machine) {
+    final h = machine['health_mesin'] ?? machine['health_overall'];
+    if (h == null) return 0.0;
+    if (h is num) return h.toDouble();
+    return double.tryParse(h.toString()) ?? 0.0;
   }
 
   Color _getHealthColor(double health) {
     final h = health.toInt();
-    if (h >= 90) return Colors.green;
-    if (h >= 60) return Colors.orange;
+    if (h >= 95) return Colors.green;
+    if (h > 85) return Colors.teal;
+    if (h > 60) return Colors.orange;
     return Colors.red;
   }
 
-  List<Map<String, dynamic>> get _goodLoris {
-    return _allLoris
-        .where((lori) => _getHealth(lori) >= 60)
-        .toList()
-      ..sort((a, b) => _getHealth(b).compareTo(_getHealth(a)));
+  List<Map<String, dynamic>> get _goodMachines {
+    final filtered = _machines
+        .where((m) {
+          if (m is! Map<String, dynamic>) return false;
+          return _getHealth(m) >= 85;
+        })
+        .map((e) => Map<String, dynamic>.from(e as Map<String, dynamic>))
+        .toList();
+    filtered.sort((a, b) => _getHealth(b).compareTo(_getHealth(a)));
+    return filtered;
   }
 
-  List<Map<String, dynamic>> get _serviceLoris {
-    return _allLoris
-        .where((lori) => _getHealth(lori) < 60)
-        .toList()
-      ..sort((a, b) => _getHealth(a).compareTo(_getHealth(b)));
+  List<Map<String, dynamic>> get _serviceMachines {
+    final filtered = _machines
+        .where((m) {
+          if (m is! Map<String, dynamic>) return false;
+          return _getHealth(m) < 85;
+        })
+        .map((e) => Map<String, dynamic>.from(e as Map<String, dynamic>))
+        .toList();
+    filtered.sort((a, b) => _getHealth(a).compareTo(_getHealth(b)));
+    return filtered;
   }
 
   @override
@@ -81,12 +82,10 @@ class _LoriNotificationScreenState extends State<LoriNotificationScreen>
       appBar: AppBar(
         backgroundColor: const Color(0xFF1a2332),
         elevation: 0,
+        leading: BackButton(color: Colors.white),
         title: const Text(
-          'Notifikasi Lori',
-          style: TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.bold,
-          ),
+          'Informasi Service',
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
         ),
         bottom: TabBar(
           controller: _tabController,
@@ -94,27 +93,33 @@ class _LoriNotificationScreenState extends State<LoriNotificationScreen>
           unselectedLabelColor: Colors.white70,
           indicatorColor: const Color(0xFF2196F3),
           tabs: const [
-            Tab(text: 'Bagus'),
             Tab(text: 'Perlu Service'),
+            Tab(text: 'Baik'),
           ],
         ),
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
-          : _allLoris.isEmpty
-          ? Center(
-              child: Text(
-                'Belum ada data lori',
-                style: TextStyle(color: Colors.grey[600]),
-              ),
-            )
-          : TabBarView(
-              controller: _tabController,
-              children: [
-                _buildList(_goodLoris, emptyMsg: 'Tidak ada lori dalam kondisi bagus'),
-                _buildList(_serviceLoris, emptyMsg: 'Tidak ada lori yang perlu diservice'),
-              ],
-            ),
+          : _machines.isEmpty
+              ? Center(
+                  child: Text(
+                    'Belum ada data machine',
+                    style: TextStyle(color: Colors.grey[600]),
+                  ),
+                )
+              : TabBarView(
+                  controller: _tabController,
+                  children: [
+                    _buildList(
+                      _serviceMachines,
+                      emptyMsg: 'Tidak ada machine yang perlu diservice',
+                    ),
+                    _buildList(
+                      _goodMachines,
+                      emptyMsg: 'Tidak ada machine dalam kondisi baik',
+                    ),
+                  ],
+                ),
     );
   }
 
@@ -135,10 +140,11 @@ class _LoriNotificationScreenState extends State<LoriNotificationScreen>
       padding: const EdgeInsets.all(16),
       itemCount: list.length,
       itemBuilder: (context, index) {
-        final lori = list[index];
-        final name = lori['name'] as String;
-        final code = lori['code'] as String;
-        final health = _getHealth(lori);
+        final machine = list[index];
+        final name = (machine['nama_mesin'] ?? machine['nama'] ?? 'Machine')
+            .toString();
+        final code = (machine['kode_mesin'] ?? machine['kode'] ?? '').toString();
+        final health = _getHealth(machine);
         final color = _getHealthColor(health);
 
         return GestureDetector(
@@ -146,10 +152,9 @@ class _LoriNotificationScreenState extends State<LoriNotificationScreen>
             Navigator.push(
               context,
               MaterialPageRoute(
-                builder: (context) => LoriDetailScreen(
-                  loriName: name,
-                  loriCode: code.isEmpty ? name : code,
-                  initialData: Map<String, dynamic>.from(lori['data'] ?? {}),
+                builder: (context) => MachineDetailScreen(
+                  machineId: _toInt(machine['id_mesin'] ?? machine['id']),
+                  machineName: name,
                 ),
               ),
             );
@@ -197,19 +202,14 @@ class _LoriNotificationScreenState extends State<LoriNotificationScreen>
                       const SizedBox(height: 3),
                       Text(
                         code.isEmpty ? '-' : code,
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.grey[600],
-                        ),
+                        style: TextStyle(fontSize: 12, color: Colors.grey[600]),
                       ),
                     ],
                   ),
                 ),
                 Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 4,
-                  ),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
                     color: color.withOpacity(0.12),
                     borderRadius: BorderRadius.circular(20),
@@ -231,5 +231,13 @@ class _LoriNotificationScreenState extends State<LoriNotificationScreen>
         );
       },
     );
+  }
+
+  int _toInt(dynamic v) {
+    if (v == null) return 0;
+    if (v is int) return v;
+    if (v is double) return v.toInt();
+    if (v is String) return int.tryParse(v) ?? 0;
+    return 0;
   }
 }

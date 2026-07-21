@@ -35,24 +35,13 @@ class _ComponentDetailScreenState extends State<ComponentDetailScreen> {
   // dengan bobot 0 agar data tersimpan lama tidak rusak saat migrasi nama komponen.
   static const Map<String, double> _defaultWeights = {
     'Body': 25.0,
-    'Body samping': 0.0,
-    'Body depan belakang': 0.0,
     'Siku': 5.0,
     'Steam Spreader': 7.0,
     'Chasis': 25.0,
-    'Hock': 3.0,
-    'Hook': 0.0,
-    'Cover Roda': 2.0,
-    'Roda': 13.0,
-    'Lantai': 20.0,
-    // Legacy aliases for backward compatibility
-    'Bushing': 0.0,
-    'Bearing': 0.0,
-    'Frame': 0.0,
-    'Axle': 0.0,
-    'Side Body': 0.0,
-    'Front & Back Body': 0.0,
-    'Wheels': 0.0,
+    'Hook': 10.0,
+    'Cover Roda': 8.0,
+    'Roda': 15.0,
+    'Lantai': 5.0,
   };
 
   @override

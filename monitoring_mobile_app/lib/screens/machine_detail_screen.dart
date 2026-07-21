@@ -83,10 +83,10 @@ class _MachineDetailScreenState extends State<MachineDetailScreen>
     'Siku': 5.0,
     'Steam Spreader': 7.0,
     'Chasis': 25.0,
-    'Hock': 3.0,
-    'Cover Roda': 2.0,
-    'Roda': 13.0,
-    'Lantai': 20.0,
+    'Hook': 10.0,
+    'Cover Roda': 8.0,
+    'Roda': 15.0,
+    'Lantai': 5.0,
   };
 
   final List<String> _kondisiOptions = [
@@ -363,10 +363,20 @@ class _MachineDetailScreenState extends State<MachineDetailScreen>
         final kondisi = _komponenConditions[komponenId];
 
         if (kondisi != null) {
+          final komponenName = komponen['nama_komponen']?.toString() ?? '';
+          double weight = _dataStore.getKomponenWeight(
+            widget.machineName,
+            komponenName,
+          );
+          if (weight <= 0) {
+            weight = _defaultKomponenWeights[komponenName] ?? 0.0;
+          }
+
           komponenConditions.add({
             'id_komponen': komponenId,
             'kondisi': kondisi,
             'nilai': _nilaiPersentase[kondisi] ?? 0,
+            'bobot': weight,
           });
         }
       }
@@ -380,6 +390,7 @@ class _MachineDetailScreenState extends State<MachineDetailScreen>
             ? _inspectionKeteranganController.text.trim()
             : null,
         komponenConditions: komponenConditions,
+        healthOverall: _overallHealth,
       );
 
       // ✅ Upload foto inspeksi (jika ada)

@@ -86,10 +86,10 @@ class _LoriDetailScreenState extends State<LoriDetailScreen> {
     'Siku': 5.0,
     'Steam Spreader': 7.0,
     'Chasis': 25.0,
-    'Hock': 3.0,
-    'Cover Roda': 2.0,
-    'Roda': 13.0,
-    'Lantai': 20.0,
+    'Hook': 10.0,
+    'Cover Roda': 8.0,
+    'Roda': 15.0,
+    'Lantai': 5.0,
   };
 
   double _calculateFilteredWeightedOverallHealth() {

@@ -18,5 +18,7 @@ router.post("/:id/inspection/:serviceId/photos", authenticate, ctrl.uploadMiddle
 router.delete("/:id/inspection/:serviceId/photos/:photoId", authorize("admin", "staff"), ctrl.deletePhoto);
 router.get("/:id/history", authenticate, ctrl.getServiceHistory);
 router.get("/:id/pm-status", authenticate, ctrl.getPMStatus);
+router.get("/:id/lori-conditions", authenticate, ctrl.getLoriConditions);
+router.post("/:id/lori-conditions", authenticate, ctrl.createLoriCondition);
 
 module.exports = router;

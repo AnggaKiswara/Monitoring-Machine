@@ -211,7 +211,7 @@ CREATE TABLE IF NOT EXISTS service_history (
     id_station            INT NOT NULL,
     id_mesin                INT NOT NULL,
     id_komponen               INT,
-    service_type               ENUM('preventive', 'corrective', 'calibration', 'inspection') NOT NULL,
+    service_type               ENUM('preventive', 'corrective', 'calibration', 'inspection', 'service_required') NOT NULL,
     description                  VARCHAR(255),
     health_mesin_before            FLOAT,
     health_mesin_after               FLOAT,
@@ -235,6 +235,27 @@ CREATE TABLE IF NOT EXISTS service_history (
 ) ENGINE=InnoDB;
 
 SET FOREIGN_KEY_CHECKS = 1;
+
+-- ---------------------------------------------------------------------
+-- 11. LORI CONDITION (status kesehatan lorry per inspeksi)
+-- ---------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS lori_condition (
+    id_condition     INT AUTO_INCREMENT PRIMARY KEY,
+    id_service       INT NOT NULL,
+    id_mesin         INT NOT NULL,
+    health_overall   FLOAT NOT NULL,
+    classification   VARCHAR(64) NOT NULL,
+    created_at       DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at       DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    CONSTRAINT fk_loricondition_service FOREIGN KEY (id_service)
+        REFERENCES service_history (id_service)
+        ON DELETE CASCADE ON UPDATE CASCADE,
+    CONSTRAINT fk_loricondition_machine FOREIGN KEY (id_mesin)
+        REFERENCES machine (id_mesin)
+        ON DELETE CASCADE ON UPDATE CASCADE,
+    INDEX idx_loricondition_mesin (id_mesin),
+    INDEX idx_loricondition_service (id_service)
+) ENGINE=InnoDB;
 
 -- =====================================================================
 -- SEED DATA CONTOH (opsional, hapus kalau tidak perlu)

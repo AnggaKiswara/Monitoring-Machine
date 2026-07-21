@@ -513,7 +513,7 @@ module.exports.submitInspection = async (req, res) => {
 
   try {
     const { id } = req.params;
-    const { tanggal_inspeksi, pic, keterangan, komponen_conditions } = req.body;
+    const { tanggal_inspeksi, pic, keterangan, komponen_conditions, health_overall } = req.body;
     const id_user = req.user?.id_user;
 
     // Validasi input
@@ -551,15 +551,14 @@ module.exports.submitInspection = async (req, res) => {
     const healthBefore = machine.health_mesin || 0;
     const serviceDate = tanggal_inspeksi || new Date().toISOString().split("T")[0];
 
-    // 2. Hitung health baru dari input komponen (tanpa insert dulu)
+    // 2. Hitung health baru dari input komponen (hanya untuk komponen reading, jangan override mobile)
     let totalNilai = 0;
     let komponenCount = 0;
-    const readingsToInsert = []; // kumpulkan (id_komponen, id_parameter, nilai)
+    const readingsToInsert = [];
 
     for (const item of komponen_conditions) {
       const { id_komponen, kondisi, nilai } = item;
 
-      // Ambil parameter yang terkait dengan komponen ini
       const [parameters] = await connection.query(
         `SELECT p.id_parameter
          FROM parameter p
@@ -573,7 +572,6 @@ module.exports.submitInspection = async (req, res) => {
           readingsToInsert.push([id_komponen, param.id_parameter, nilai]);
         }
       } else {
-        // Jika belum ada mapping komponen_parameter, cari/buat parameter default "kondisi"
         let defaultParamId;
 
         const [existingParam] = await connection.query(
@@ -598,7 +596,6 @@ module.exports.submitInspection = async (req, res) => {
         console.log(`Auto-created parameter mapping for komponen ${id_komponen}`);
       }
 
-      // Update kesehatan komponen
       await connection.query(
         `UPDATE komponen SET avg_health_all_parameter = ?, last_service = ?, updated_at = NOW()
          WHERE id_komponen = ?`,
@@ -609,8 +606,13 @@ module.exports.submitInspection = async (req, res) => {
       komponenCount++;
     }
 
-    // 3. Hitung health baru (rata-rata semua komponen)
-    const healthAfter = komponenCount > 0 ? Math.round((totalNilai / komponenCount) * 100) / 100 : healthBefore;
+    // 3. Prefer health_overall dari mobile; calon fallback ke rata-rata
+    const fallbackHealth =
+      komponenCount > 0 ? Math.round((totalNilai / komponenCount) * 100) / 100 : healthBefore;
+    const healthAfter =
+      typeof health_overall === "number" && Number.isFinite(health_overall)
+        ? Math.round(health_overall * 100) / 100
+        : fallbackHealth;
 
     // 4. Next service date (+7 hari)
     const nextServiceDate = new Date(new Date(serviceDate).getTime() + 7 * 24 * 60 * 60 * 1000);
@@ -645,6 +647,14 @@ module.exports.submitInspection = async (req, res) => {
       [healthAfter, serviceDate, nextServiceDate, id]
     );
 
+    // 7b. Persist lorry condition record
+    const classification = _classifyHealth(healthAfter);
+    await connection.query(
+      `INSERT INTO lori_condition (id_service, id_mesin, health_overall, classification)
+       VALUES (?, ?, ?, ?)`,
+      [serviceId, id, healthAfter, classification]
+    );
+
     await connection.commit();
 
     res.status(201).json({
@@ -657,6 +667,7 @@ module.exports.submitInspection = async (req, res) => {
         service_date: serviceDate,
         next_service_date: nextServiceDate,
         komponen_count: komponenCount,
+        classification,
         description: description,
       },
     });
@@ -671,6 +682,13 @@ module.exports.submitInspection = async (req, res) => {
     connection.release();
   }
 };
+
+function _classifyHealth(value) {
+  const v = Math.round(value);
+  if (v >= 90) return "Excellent";
+  if (v >= 60) return "Satisfactory";
+  return "Poor";
+}
 
 // PUT - Update inspection (service_history + komponen readings + health)
 async function updateInspection(req, res) {

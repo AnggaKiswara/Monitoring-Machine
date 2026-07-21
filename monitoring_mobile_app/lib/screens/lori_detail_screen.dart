@@ -111,7 +111,7 @@ class _LoriDetailScreenState extends State<LoriDetailScreen> {
     }
 
     if (totalWeight == 0) return _calculateOverallHealth();
-    return weightedSum / totalWeight;
+    return weightedSum / 100;
   }
 
   List<Map<String, dynamic>> get _komponenWeightedList {

@@ -329,7 +329,7 @@ class _MachineDetailScreenState extends State<MachineDetailScreen>
       totalWeight += weight;
     });
 
-    return totalWeight > 0 ? weightedSum / totalWeight : null;
+    return totalWeight > 0 ? weightedSum / 100 : null;
   }
 
   Color _getHealthColor(double health) {

@@ -110,22 +110,14 @@ class _StationListScreenState extends State<StationListScreen> {
 
   @override
   Widget build(BuildContext context) {
-    int total = _stations.length;
-    int excellent = _stations.where((s) {
-      final h = (s['health_station'] ?? 0).toDouble();
-      return h >= 95;
-    }).length;
-    int good = _stations.where((s) {
-      final h = (s['health_station'] ?? 0).toDouble();
-      return h > 85 && h < 95;
-    }).length;
-    int satisfactory = _stations.where((s) {
-      final h = (s['health_station'] ?? 0).toDouble();
-      return h > 60 && h <= 85;
-    }).length;
-    int poor = _stations
-        .where((s) => (s['health_station'] ?? 0).toDouble() <= 60)
-        .length;
+    int total = _stationHealth.length;
+    int excellent = 0, good = 0, satisfactory = 0, poor = 0;
+    _stationHealth.forEach((_, h) {
+      if (h >= 95) excellent++;
+      else if (h > 85 && h < 95) good++;
+      else if (h > 60 && h <= 85) satisfactory++;
+      else if (h <= 60) poor++;
+    });
 
     return Scaffold(
       backgroundColor: Colors.grey[50],

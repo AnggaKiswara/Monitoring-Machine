@@ -51,11 +51,15 @@ class _InformasiServiceScreenState extends State<InformasiServiceScreen>
     return Colors.red;
   }
 
+  bool _hasInspection(Map<String, dynamic> machine) {
+    return _getHealth(machine) > 0;
+  }
+
   List<Map<String, dynamic>> get _goodMachines {
     final filtered = _machines
         .where((m) {
           if (m is! Map<String, dynamic>) return false;
-          return _getHealth(m) >= 85;
+          return _hasInspection(m) && _getHealth(m) >= 85;
         })
         .map((e) => Map<String, dynamic>.from(e as Map<String, dynamic>))
         .toList();
@@ -67,7 +71,7 @@ class _InformasiServiceScreenState extends State<InformasiServiceScreen>
     final filtered = _machines
         .where((m) {
           if (m is! Map<String, dynamic>) return false;
-          return _getHealth(m) < 85;
+          return _hasInspection(m) && _getHealth(m) < 85;
         })
         .map((e) => Map<String, dynamic>.from(e as Map<String, dynamic>))
         .toList();

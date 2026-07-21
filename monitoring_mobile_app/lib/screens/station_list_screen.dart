@@ -254,7 +254,6 @@ class _StationListScreenState extends State<StationListScreen> {
                 ),
               ],
             ),
-      bottomNavigationBar: _buildBottomNavigationBar(),
     );
   }
 

@@ -104,7 +104,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               color: Color(0xFF1a2332),
             ),
             onPressed: () {
-              Navigator.pushNamed(context, '/submitted_data');
+              Navigator.pushNamed(context, '/service_notifications');
             },
           ),
           IconButton(

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../services/api_services.dart';
 import '../app_notify.dart';
-import 'informasi_service_history_screen.dart';
+import 'inspection_history_detail_screen.dart';
 
 class InformasiServiceScreen extends StatefulWidget {
   const InformasiServiceScreen({super.key});
@@ -152,16 +152,31 @@ class _InformasiServiceScreenState extends State<InformasiServiceScreen>
         final color = _getHealthColor(health);
 
         return GestureDetector(
-          onTap: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => InformasiServiceHistoryScreen(
-                  machineId: _toInt(machine['id_mesin'] ?? machine['id']),
-                  machineName: name,
+          onTap: () async {
+            try {
+              final history = await ApiServices.getServiceHistory(
+                machineId: _toInt(machine['id_mesin'] ?? machine['id']),
+                limit: 1,
+              );
+              if (history.isEmpty) {
+                if (mounted) AppNotify.warning(context, 'Belum ada inspeksi');
+                return;
+              }
+              final serviceId = _toInt(history.first['id_service']);
+              if (!mounted) return;
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => InspectionHistoryDetailScreen(
+                    machineId: _toInt(machine['id_mesin'] ?? machine['id']),
+                    serviceId: serviceId,
+                    machineName: name,
+                  ),
                 ),
-              ),
-            );
+              );
+            } catch (e) {
+              if (mounted) AppNotify.error(context, 'Gagal memuat inspeksi');
+            }
           },
           child: Container(
             margin: const EdgeInsets.only(bottom: 12),

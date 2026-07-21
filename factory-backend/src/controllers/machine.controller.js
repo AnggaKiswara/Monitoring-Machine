@@ -608,11 +608,28 @@ module.exports.submitInspection = async (req, res) => {
       komponenCount++;
     }
 
-    // 3. Prefer health_overall dari mobile; calon fallback ke rata-rata
+    // 3. Gunakan health_overall dari mobile jika ada; fallback ke weighted dari komponen
+    const computedWeighted = (() => {
+      let wSum = 0;
+      let wTotal = 0;
+      for (const row of (komponen_conditions || [])) {
+        const nilai = typeof row.nilai === 'number' ? row.nilai : Number(row.nilai || 0);
+        const weight = typeof row.weight === 'number' ? row.weight : Number(row.weight || 0);
+        wSum += nilai * weight;
+        wTotal += weight;
+      }
+      return wTotal > 0 ? Math.round((wSum / wTotal) * 100) / 100 : null;
+    })();
+
     const fallbackHealth =
-      komponenCount > 0 ? Math.round((totalNilai / komponenCount) * 100) / 100 : healthBefore;
+      typeof computedWeighted === 'number'
+        ? computedWeighted
+        : komponenCount > 0
+            ? Math.round((totalNilai / komponenCount) * 100) / 100
+            : healthBefore;
+
     const healthAfter =
-      typeof health_overall === "number" && Number.isFinite(health_overall)
+      typeof health_overall === 'number' && Number.isFinite(health_overall)
         ? Math.round(health_overall * 100) / 100
         : fallbackHealth;
 

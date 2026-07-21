@@ -206,19 +206,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ),
               ],
             ),
-      floatingActionButton: _canManageFactory
-          ? FloatingActionButton.extended(
-              onPressed: () {
-                Navigator.pushNamed(context, '/lori_notifications');
-              },
-              backgroundColor: const Color(0xFF2196F3),
-              icon: const Icon(Icons.notifications_rounded, color: Colors.white),
-              label: const Text(
-                'Notifikasi Lori',
-                style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-              ),
-            )
-          : null,
+      floatingActionButton: null,
       floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
       bottomNavigationBar: _buildBottomNavigationBar(),
     );
@@ -374,9 +362,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
           label: 'Station',
         ),
         BottomNavigationBarItem(
-          icon: Icon(Icons.add_circle_outline),
-          activeIcon: Icon(Icons.add_circle),
-          label: 'Mill',
+          icon: Icon(Icons.notifications_outlined),
+          activeIcon: Icon(Icons.notifications),
+          label: 'Notifikasi',
         ),
         BottomNavigationBarItem(
           icon: Icon(Icons.history_outlined),
@@ -397,6 +385,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
       // Already on dashboard
     } else if (index == 1) {
       Navigator.pushNamed(context, '/submitted_data');
+    } else if (index == 2) {
+      Navigator.pushNamed(context, '/lori_notifications');
     } else if (index == 3) {
       Navigator.push(
         context,

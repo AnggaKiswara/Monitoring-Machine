@@ -68,7 +68,7 @@ class DataStore {
     }
 
     if (totalWeight == 0) return 0;
-    return weightedSum / totalWeight;
+    return weightedSum / 100;
   }
 
   // Simpan data lori

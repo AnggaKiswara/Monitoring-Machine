@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'screens/login_screen.dart';
 import 'screens/dashboard_screen.dart';
 import 'screens/lori_notification_screen.dart';
+import 'screens/service_notification_screen.dart';
 
 void main() {
   runApp(const MyApp());
@@ -25,6 +26,8 @@ class MyApp extends StatelessWidget {
         '/login': (context) => const LoginScreen(),
         '/dashboard': (context) => const DashboardScreen(),
         '/lori_notifications': (context) => const LoriNotificationScreen(),
+        '/service_notifications': (context) =>
+            const ServiceNotificationScreen(),
       },
     );
   }

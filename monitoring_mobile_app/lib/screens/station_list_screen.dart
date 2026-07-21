@@ -68,13 +68,20 @@ class _StationListScreenState extends State<StationListScreen> {
   @override
   Widget build(BuildContext context) {
     int total = _stations.length;
-    int good = _stations.where((s) => (s['health_station'] ?? 0) >= 90).length;
-    int warning = _stations.where((s) {
-      int h = (s['health_station'] ?? 0).toInt();
-      return h >= 70 && h < 90;
+    int excellent = _stations.where((s) {
+      final h = (s['health_station'] ?? 0).toDouble();
+      return h >= 95;
     }).length;
-    int breakdown = _stations
-        .where((s) => (s['health_station'] ?? 0) < 70)
+    int good = _stations.where((s) {
+      final h = (s['health_station'] ?? 0).toDouble();
+      return h > 85 && h < 95;
+    }).length;
+    int satisfactory = _stations.where((s) {
+      final h = (s['health_station'] ?? 0).toDouble();
+      return h > 60 && h <= 85;
+    }).length;
+    int poor = _stations
+        .where((s) => (s['health_station'] ?? 0).toDouble() <= 60)
         .length;
 
     return Scaffold(
@@ -183,8 +190,8 @@ class _StationListScreenState extends State<StationListScreen> {
                               color: Colors.white24,
                             ),
                             _buildStatItem(
-                              'Good Condition',
-                              '$good',
+                              'Excellent Condition',
+                              '$excellent',
                               Colors.green[300]!,
                             ),
                           ],
@@ -196,9 +203,9 @@ class _StationListScreenState extends State<StationListScreen> {
                           mainAxisAlignment: MainAxisAlignment.spaceAround,
                           children: [
                             _buildStatItem(
-                              'Warning Condition',
-                              '$warning',
-                              Colors.orange[300]!,
+                              'Good Condition',
+                              '$good',
+                              Colors.teal[200]!,
                             ),
                             Container(
                               width: 1,
@@ -206,8 +213,21 @@ class _StationListScreenState extends State<StationListScreen> {
                               color: Colors.white24,
                             ),
                             _buildStatItem(
-                              'Breakdown Condition',
-                              '$breakdown',
+                              'Satisfactory Condition',
+                              '$satisfactory',
+                              Colors.orange[300]!,
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        const Divider(color: Colors.white24, thickness: 1),
+                        const SizedBox(height: 12),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceAround,
+                          children: [
+                            _buildStatItem(
+                              'Poor Condition',
+                              '$poor',
                               Colors.red[300]!,
                             ),
                           ],

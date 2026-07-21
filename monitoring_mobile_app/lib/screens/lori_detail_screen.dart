@@ -80,6 +80,39 @@ class _LoriDetailScreenState extends State<LoriDetailScreen> {
     return _dataStore.getLoriOverallHealth(widget.loriName);
   }
 
+  double _calculateFilteredWeightedOverallHealth() {
+    // Hitung hanya komponen yang bobotnya > 0
+    double weightedSum = 0;
+    double totalWeight = 0;
+
+    for (final k in komponenList) {
+      final name = k['name'] as String;
+      final weight = _dataStore.getKomponenWeight(widget.loriName, name);
+      if (weight <= 0) continue;
+      final health = _dataStore.getComponentHealth(widget.loriName, name);
+      weightedSum += health * weight;
+      totalWeight += weight;
+    }
+
+    if (totalWeight == 0) return _calculateOverallHealth();
+    return weightedSum / totalWeight;
+  }
+
+  List<Map<String, dynamic>> get _komponenWeightedList {
+    return komponenList.map((k) {
+      final name = k['name'] as String;
+      final weight = _dataStore.getKomponenWeight(widget.loriName, name);
+      final health = _dataStore.getComponentHealth(widget.loriName, name);
+      final total = weight > 0 ? (health * weight / 100) : 0.0;
+      return {
+        'name': name,
+        'weight': weight,
+        'health': health,
+        'total': total,
+      };
+    }).toList();
+  }
+
   void _submitAllData() {
     print('=== SUBMITTING DATA ===');
 
@@ -114,14 +147,24 @@ class _LoriDetailScreenState extends State<LoriDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    double overallHealth = _calculateOverallHealth();
+    double overallHealth = _calculateFilteredWeightedOverallHealth();
     int healthInt = overallHealth.toInt();
-    String status = healthInt >= 90
-        ? 'Baik'
-        : (healthInt >= 70 ? 'Perlu Perhatian' : 'Perlu Perbaikan');
-    Color statusColor = healthInt >= 90
-        ? Colors.green
-        : (healthInt >= 70 ? Colors.orange : Colors.red);
+    String status;
+    Color statusColor;
+
+    if (healthInt >= 90) {
+      status = 'Excellent';
+      statusColor = const Color(0xFF2196F3);
+    } else if (healthInt >= 70) {
+      status = 'Satisfactory';
+      statusColor = Colors.orange;
+    } else if (healthInt >= 60) {
+      status = 'Perlu Perhatian';
+      statusColor = Colors.orange;
+    } else {
+      status = 'Poor';
+      statusColor = Colors.red;
+    }
 
     // Format tanggal untuk ditampilkan
     String tanggalInspeksiDisplay = '-';
@@ -305,6 +348,10 @@ class _LoriDetailScreenState extends State<LoriDetailScreen> {
                         _buildSisaHariCard(sisaHari),
                       ],
                     ),
+                    const SizedBox(height: 20),
+
+                    // Overall Health Table
+                    _buildWeightedHealthTable(),
                     const SizedBox(height: 20),
 
                     // Inspector Card
@@ -552,6 +599,186 @@ class _LoriDetailScreenState extends State<LoriDetailScreen> {
           const Text(
             'Sisa Hari',
             style: TextStyle(fontSize: 10, color: Colors.grey),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildWeightedHealthTable() {
+    final weightedList = _komponenWeightedList;
+    double totalBobot = 0;
+    double totalNilaiBobot = 0;
+
+    for (var k in weightedList) {
+      totalBobot += k['weight'] as double;
+      totalNilaiBobot += k['total'] as double;
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(15),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.withOpacity(0.1),
+            blurRadius: 5,
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Overall Health',
+            style: TextStyle(
+              color: Colors.grey,
+              fontSize: 14,
+            ),
+          ),
+          const SizedBox(height: 10),
+          Table(
+            columnWidths: const {
+              0: FlexColumnWidth(3),
+              1: FlexColumnWidth(2),
+              2: FlexColumnWidth(2),
+              3: FlexColumnWidth(2),
+            },
+            children: [
+              TableRow(
+                decoration: BoxDecoration(
+                  color: Colors.grey[100],
+                  borderRadius: const BorderRadius.vertical(
+                    top: Radius.circular(8),
+                  ),
+                ),
+                children: const [
+                  Padding(
+                    padding: EdgeInsets.all(8),
+                    child: Text(
+                      'Uraian',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                  Padding(
+                    padding: EdgeInsets.all(8),
+                    child: Text(
+                      'Bobot',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                  Padding(
+                    padding: EdgeInsets.all(8),
+                    child: Text(
+                      'Penilaian',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                  Padding(
+                    padding: EdgeInsets.all(8),
+                    child: Text(
+                      'Total',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                ],
+              ),
+              ...weightedList.map((k) {
+                final weight = k['weight'] as double;
+                final health = k['health'] as int;
+                final total = k['total'] as double;
+
+                return TableRow(
+                  decoration: const BoxDecoration(
+                    border: Border(
+                      top: BorderSide(color: Colors.grey, width: 0.2),
+                    ),
+                  ),
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.all(8),
+                      child: Text(
+                        k['name'] as String,
+                        style: const TextStyle(fontSize: 13),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.all(8),
+                      child: Text(
+                        weight.toStringAsFixed(0),
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.all(8),
+                      child: Text(
+                        '$health',
+                        style: const TextStyle(fontSize: 13),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.all(8),
+                      child: Text(
+                        total.toStringAsFixed(1),
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: total > 0 ? const Color(0xFF2196F3) : Colors.grey,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                  ],
+                );
+              }),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Container(
+            padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+            decoration: BoxDecoration(
+              color: Colors.grey[50],
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Total Bobot: ${totalBobot.toStringAsFixed(0)}',
+                  style: const TextStyle(fontSize: 12, color: Colors.grey),
+                ),
+                Text(
+                  'Total: ${totalNilaiBobot.toStringAsFixed(2)}',
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF1a2332),
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
       ),

@@ -4,7 +4,6 @@ import 'dart:convert';
 import '../services/api_services.dart';
 import 'station_list_screen.dart';
 import 'global_history_screen.dart';
-import 'factory_list_screen.dart';
 import '../providers/auth_providers.dart';
 
 class DashboardScreen extends StatefulWidget {
@@ -210,17 +209,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
       floatingActionButton: _canManageFactory
           ? FloatingActionButton.extended(
               onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => const FactoryListScreen(),
-                  ),
-                );
+                Navigator.pushNamed(context, '/lori_notifications');
               },
               backgroundColor: const Color(0xFF2196F3),
-              icon: const Icon(Icons.add, color: Colors.white),
+              icon: const Icon(Icons.notifications_rounded, color: Colors.white),
               label: const Text(
-                'Add Factory',
+                'Notifikasi Lori',
                 style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
               ),
             )

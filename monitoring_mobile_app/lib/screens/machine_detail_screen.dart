@@ -66,9 +66,9 @@ class _MachineDetailScreenState extends State<MachineDetailScreen>
 
   // Nilai persentase
   final Map<String, double> _nilaiPersentase = {
-    'Sangat Baik': 95.0,
-    'Baik': 80.0,
-    'Perlu Maintenance': 60.0,
+    'Sangat Baik': 100.0,
+    'Baik': 85.0,
+    'Perlu Maintenance': 70.0,
     'Rusak': 30.0,
     'Tidak Ada': 0.0,
   };

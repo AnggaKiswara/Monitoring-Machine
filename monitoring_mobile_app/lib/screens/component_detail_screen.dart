@@ -26,6 +26,26 @@ class _ComponentDetailScreenState extends State<ComponentDetailScreen> {
   late List<Map<String, dynamic>> _parameters;
   DateTime _tanggalInspeksi = DateTime.now();
   String _inspectorName = '';
+  double _komponenWeight = 0.0;
+  final TextEditingController _weightController = TextEditingController();
+  bool _weightInitialized = false;
+
+  // ✅ Mapping nama komponen -> bobot default sesuai spreadsheet
+  static const Map<String, double> _defaultWeights = {
+    'Roda': 13.0,
+    'Bushing': 10.0,
+    'Bearing': 10.0,
+    'Siku': 5.0,
+    'Body samping': 25.0,
+    'Body depan belakang': 25.0,
+    'Hook': 3.0,
+    'Steam Spreader': 7.0,
+    'Frame': 2.0,
+    'Axle': 0.0,
+    'Side Body': 0.0,
+    'Front & Back Body': 0.0,
+    'Wheels': 0.0,
+  };
 
   @override
   void initState() {
@@ -100,6 +120,16 @@ class _ComponentDetailScreenState extends State<ComponentDetailScreen> {
     for (var param in _parameters) {
       _controllers[param['name']] = TextEditingController();
     }
+
+    // Inisialisasi bobot komponen
+    final defaultWeight = _defaultWeights[widget.componentName] ?? 0.0;
+    final savedWeight = _dataStore.getKomponenWeight(
+      widget.loriName,
+      widget.componentName,
+    );
+    _komponenWeight = savedWeight > 0 ? savedWeight : defaultWeight;
+    _weightController.text = _komponenWeight.toStringAsFixed(1);
+    _weightInitialized = true;
   }
 
   // ✅ METHOD YANG DIPERBAIKI - sekarang utuh dan tidak terputus
@@ -161,6 +191,15 @@ class _ComponentDetailScreenState extends State<ComponentDetailScreen> {
     };
 
     _dataStore.setComponentData(componentKey, componentData);
+
+    // ✅ Simpan bobot komponen jika sudah diubah
+    if (_weightInitialized) {
+      _dataStore.setKomponenWeight(
+        widget.loriName,
+        widget.componentName,
+        _komponenWeight,
+      );
+    }
   }
 
   double _calculateHealth() {
@@ -182,12 +221,59 @@ class _ComponentDetailScreenState extends State<ComponentDetailScreen> {
     return total / count;
   }
 
+  Widget _buildWeightSection() {
+    return Container(
+      padding: const EdgeInsets.all(15),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey.shade200),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('Bobot Komponen'),
+                const SizedBox(height: 6),
+                TextField(
+                  controller: _weightController,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  decoration: InputDecoration(
+                    suffixText: '%',
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
+                  ),
+                  onChanged: (value) {
+                    final parsed = double.tryParse(value);
+                    setState(() {
+                      _komponenWeight = parsed ?? 0.0;
+                    });
+                  },
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 12),
+          Icon(Icons.scale, color: Colors.grey[600]),
+        ],
+      ),
+    );
+  }
+
   @override
   void dispose() {
     for (var controller in _controllers.values) {
       controller.dispose();
     }
     _catatanController.dispose();
+    _weightController.dispose();
     super.dispose();
   }
 
@@ -351,6 +437,9 @@ class _ComponentDetailScreenState extends State<ComponentDetailScreen> {
                     (param) =>
                         _buildParameterInput(param['name'], param['unit']),
                   ),
+                  const SizedBox(height: 20),
+
+                  _buildWeightSection(),
                   const SizedBox(height: 20),
 
                   const Text(

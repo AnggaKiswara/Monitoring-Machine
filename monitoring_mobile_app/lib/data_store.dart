@@ -12,6 +12,9 @@ class DataStore {
   // Storage untuk health komponen
   final Map<String, Map<String, int>> componentHealth = {};
 
+  // ✅ BARU: Storage untuk bobot komponen (berdasarkan spreadsheet: total bobot = 100)
+  final Map<String, Map<String, double>> komponenWeights = {};
+
   // Storage untuk data lori (HM, inspector, dll)
   final Map<String, Map<String, dynamic>> loriData = {};
 
@@ -34,19 +37,38 @@ class DataStore {
     componentHealth[loriName]![componentName] = health;
   }
 
-  // Hitung overall health lori (rata-rata dari semua komponen)
+  // ✅ Get bobot komponen
+  double getKomponenWeight(String loriName, String componentName) {
+    return komponenWeights[loriName]?[componentName] ?? 0.0;
+  }
+
+  // ✅ Set bobot komponen
+  void setKomponenWeight(String loriName, String componentName, double weight) {
+    if (komponenWeights[loriName] == null) {
+      komponenWeights[loriName] = {};
+    }
+    komponenWeights[loriName]![componentName] = weight;
+  }
+
+  // Hitung overall health lori berbobot
+  // Rumus: sum(health_i * weight_i) / sum(weight_i)
   double getLoriOverallHealth(String loriName) {
     Map<String, int>? components = componentHealth[loriName];
     if (components == null || components.isEmpty) return 0;
 
-    double total = 0;
-    int count = 0;
-    for (var health in components.values) {
-      total += health;
-      count++;
+    double weightedSum = 0;
+    double totalWeight = 0;
+
+    for (final entry in components.entries) {
+      final componentName = entry.key;
+      final health = entry.value;
+      final weight = getKomponenWeight(loriName, componentName);
+      weightedSum += health * weight;
+      totalWeight += weight;
     }
 
-    return count > 0 ? total / count : 0;
+    if (totalWeight == 0) return 0;
+    return weightedSum / totalWeight;
   }
 
   // Simpan data lori

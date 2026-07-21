@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'screens/login_screen.dart';
 import 'screens/dashboard_screen.dart';
-import 'screens/submitted_data_screen.dart';
+import 'screens/lori_notification_screen.dart';
 
 void main() {
   runApp(const MyApp());
@@ -24,7 +24,7 @@ class MyApp extends StatelessWidget {
       routes: {
         '/login': (context) => const LoginScreen(),
         '/dashboard': (context) => const DashboardScreen(),
-        '/submitted_data': (context) => const SubmittedDataScreen(),
+        '/lori_notifications': (context) => const LoriNotificationScreen(),
       },
     );
   }

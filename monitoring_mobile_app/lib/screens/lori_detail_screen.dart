@@ -28,7 +28,7 @@ class _LoriDetailScreenState extends State<LoriDetailScreen> {
     {'name': 'Siku', 'icon': Icons.circle},
     {'name': 'Steam Spreader', 'icon': Icons.circle},
     {'name': 'Chasis', 'icon': Icons.circle},
-    {'name': 'Hook', 'icon': Icons.circle},
+    {'name': 'Hock', 'icon': Icons.circle},
     {'name': 'Cover Roda', 'icon': Icons.circle},
     {'name': 'Roda', 'icon': Icons.circle},
     {'name': 'Lantai', 'icon': Icons.circle},

@@ -25,7 +25,8 @@ class _StationListScreenState extends State<StationListScreen> {
   String? _error;
   bool _canManage = false;
 
-  // Cache overall health per station dari data machine
+  // Cache machine healths + station aggregates across all stations
+  final Map<int, double> _machineHealth = {};
   final Map<int, double> _stationHealth = {};
   bool _calculatingHealth = false;
 
@@ -82,24 +83,19 @@ class _StationListScreenState extends State<StationListScreen> {
         try {
           final machines = await ApiServices.getMachines(stationId: stationId);
           final machineList = machines.cast<Map<String, dynamic>>();
-          if (machineList.isEmpty) {
-            healthMap[stationId] = 0.0;
-            continue;
-          }
-          double sum = 0;
           for (final m in machineList) {
-            sum += _toDouble(m['health_mesin']);
+            final machineId = _toInt(m['id_mesin']);
+            healthMap[machineId] = _toDouble(m['health_mesin']);
           }
-          healthMap[stationId] = sum / machineList.length;
         } catch (_) {
-          healthMap[stationId] = 0.0;
+          // ignore individual station fetch errors
         }
       }
 
       if (mounted) {
         setState(() {
-          _stationHealth.clear();
-          _stationHealth.addAll(healthMap);
+          _machineHealth.clear();
+          _machineHealth.addAll(healthMap);
           _calculatingHealth = false;
         });
       }
@@ -110,9 +106,9 @@ class _StationListScreenState extends State<StationListScreen> {
 
   @override
   Widget build(BuildContext context) {
-    int total = _stationHealth.length;
+    int totalMachine = _machineHealth.length;
     int excellent = 0, good = 0, satisfactory = 0, poor = 0;
-    _stationHealth.forEach((_, h) {
+    _machineHealth.forEach((_, h) {
       if (h >= 95) excellent++;
       else if (h > 85 && h < 95) good++;
       else if (h > 60 && h <= 85) satisfactory++;
@@ -215,8 +211,8 @@ class _StationListScreenState extends State<StationListScreen> {
                           mainAxisAlignment: MainAxisAlignment.spaceAround,
                           children: [
                             _buildStatItem(
-                              'Total Station',
-                              '$total',
+                              'Total Machine',
+                              '$totalMachine',
                               Colors.white,
                             ),
                             Container(

@@ -185,6 +185,7 @@ class ApiServices {
   }
 
   // ==================== CREATE FACTORY ====================
+
   static Future<Map<String, dynamic>> createFactory({
     required String namaFactory,
     String? lokasiFactory,
@@ -209,6 +210,7 @@ class ApiServices {
   }
 
   // ==================== CREATE STATION ====================
+
   static Future<Map<String, dynamic>> createStation({
     required int factoryId,
     required String namaStation,
@@ -232,6 +234,7 @@ class ApiServices {
   }
 
   // ==================== STATIONS ====================
+
   static Future<List<dynamic>> getStationsByFactory({
     required int factoryId,
   }) async {
@@ -372,6 +375,7 @@ class ApiServices {
   }
 
   // ==================== DELETE MACHINE (LORI) ====================
+
   static Future<void> deleteMachine({required int machineId}) async {
     final headers = await _getHeaders();
     final response = await http.delete(
@@ -387,6 +391,7 @@ class ApiServices {
   }
 
   // ==================== DELETE STATION ====================
+
   static Future<void> deleteStation({required int stationId}) async {
     final headers = await _getHeaders();
     final response = await http.delete(
@@ -402,6 +407,7 @@ class ApiServices {
   }
 
   // ==================== DELETE FACTORY ====================
+
   static Future<void> deleteFactory({required int factoryId}) async {
     final headers = await _getHeaders();
     final response = await http.delete(
@@ -558,6 +564,106 @@ class ApiServices {
       throw Exception('Gagal memuat data terbaru');
     }
   }
+
+  // ==================== MONITORING ====================
+
+  // Kirim sesi monitoring lengkap (HM + RPM + remarks + readings)
+  static Future<Map<String, dynamic>> submitMonitoringSession({
+    required int machineId,
+    double? hm,
+    double? rpm,
+    String? remarks,
+    required List<Map<String, dynamic>> readings,
+  }) async {
+    final headers = await _getHeaders();
+
+    print('=== SUBMIT MONITORING SESSION REQUEST ===');
+    print('URL: $baseUrl/monitoring/machines/$machineId/sessions');
+    print('Readings count: ${readings.length}');
+
+    final response = await http.post(
+      Uri.parse('$baseUrl/monitoring/machines/$machineId/sessions'),
+      headers: headers,
+      body: json.encode({
+        'id_mesin': machineId,
+        if (hm != null) 'hm': hm,
+        if (rpm != null) 'rpm': rpm,
+        if (remarks != null && remarks.isNotEmpty) 'remarks': remarks,
+        'readings': readings,
+      }),
+    );
+
+    print('=== SUBMIT MONITORING SESSION RESPONSE ===');
+    print('Status Code: ${response.statusCode}');
+    print('Response Body: ${response.body}');
+
+    if (response.statusCode == 201 || response.statusCode == 200) {
+      dynamic decoded = json.decode(response.body);
+      return _extractData(decoded) as Map<String, dynamic>;
+    } else {
+      dynamic decoded = json.decode(response.body);
+      String message = decoded['message'] ?? 'Gagal menyimpan monitoring';
+      throw Exception(message);
+    }
+  }
+
+  // Ambil sesi monitoring terbaru untuk mesin
+  static Future<Map<String, dynamic>?> getLatestMonitoringSession(int machineId) async {
+    final headers = await _getHeaders();
+
+    final response = await http.get(
+      Uri.parse('$baseUrl/monitoring/machines/$machineId/latest'),
+      headers: headers,
+    );
+
+    if (response.statusCode == 200) {
+      dynamic decoded = json.decode(response.body);
+      dynamic data = _extractData(decoded);
+      return data is Map<String, dynamic> ? data : null;
+    } else {
+      throw Exception('Gagal memuat monitoring terbaru');
+    }
+  }
+
+  // Ambil history sesi monitoring untuk mesin
+  static Future<List<dynamic>> getMonitoringHistory({
+    required int machineId,
+    int limit = 20,
+  }) async {
+    final headers = await _getHeaders();
+
+    final response = await http.get(
+      Uri.parse('$baseUrl/monitoring/machines/$machineId/history?limit=$limit'),
+      headers: headers,
+    );
+
+    if (response.statusCode == 200) {
+      dynamic decoded = json.decode(response.body);
+      dynamic data = _extractData(decoded);
+      return data is List ? data : [];
+    } else {
+      throw Exception('Gagal memuat history monitoring');
+    }
+  }
+
+  // Ambil daftar parameter yang tersedia
+  static Future<List<dynamic>> getMonitoringParameters() async {
+    final headers = await _getHeaders();
+
+    final response = await http.get(
+      Uri.parse('$baseUrl/parameters'),
+      headers: headers,
+    );
+
+    if (response.statusCode == 200) {
+      dynamic decoded = json.decode(response.body);
+      dynamic data = _extractData(decoded);
+      return data is List ? data : [];
+    } else {
+      throw Exception('Gagal memuat parameter');
+    }
+  }
+
   // ==================== INSPECTION ====================
 
   // Submit inspeksi lengkap (1 request = semua komponen + history)
@@ -836,7 +942,8 @@ class ApiServices {
 
     if (response.statusCode == 200) {
       dynamic decoded = json.decode(response.body);
-      return _extractData(decoded) as Map<String, dynamic>;
+      dynamic data = _extractData(decoded);
+      return data is Map<String, dynamic> ? data : {};
     } else {
       throw Exception('Gagal memuat PM status');
     }

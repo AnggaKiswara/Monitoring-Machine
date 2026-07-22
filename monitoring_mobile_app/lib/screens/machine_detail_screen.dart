@@ -10,6 +10,7 @@ import '../data_store.dart';
 import 'lori_detail_screen.dart';
 import 'inspection_history_detail_screen.dart';
 import 'inspection_edit_screen.dart';
+import 'monitoring_screen.dart';
 import '../providers/auth_providers.dart';
 
 class MachineDetailScreen extends StatefulWidget {
@@ -657,6 +658,7 @@ class _MachineDetailScreenState extends State<MachineDetailScreen>
           unselectedLabelColor: Colors.white70,
           tabs: const [
             Tab(text: 'Inspeksi', icon: Icon(Icons.edit)),
+            Tab(text: 'Monitoring', icon: Icon(Icons.analytics)),
             Tab(text: 'History', icon: Icon(Icons.history)),
           ],
         ),
@@ -665,7 +667,14 @@ class _MachineDetailScreenState extends State<MachineDetailScreen>
           ? const Center(child: CircularProgressIndicator())
           : TabBarView(
               controller: _tabController,
-              children: [_buildInspectionTab(), _buildHistoryTab()],
+              children: [
+                _buildInspectionTab(),
+                MonitoringSessionScreen(
+                  machineName: widget.machineName,
+                  machineId: widget.machineId,
+                ),
+                _buildHistoryTab(),
+              ],
             ),
     );
   }

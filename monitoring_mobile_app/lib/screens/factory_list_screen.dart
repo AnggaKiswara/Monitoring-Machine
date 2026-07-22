@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'station_list_screen.dart';
+import 'module_select_screen.dart';
 import '../services/api_services.dart';
 import '../app_notify.dart';
 import '../providers/auth_providers.dart';
@@ -183,7 +184,7 @@ class _FactoryListScreenState extends State<FactoryListScreen> {
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (context) => StationListScreen(
+            builder: (context) => ModuleSelectScreen(
               factoryName: name,
               factoryId: factoryId,
             ),

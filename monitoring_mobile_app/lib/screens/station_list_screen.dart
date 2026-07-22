@@ -77,7 +77,9 @@ class _StationListScreenState extends State<StationListScreen> {
     setState(() => _calculatingHealth = true);
 
     try {
-      final Map<int, double> healthMap = {};
+      final Map<int, double> machineHealthMap = {};
+      final Map<int, double> stationHealthMap = {};
+
       for (final station in _stations) {
         final stationId = _toInt(station['id_station']);
         try {
@@ -85,17 +87,29 @@ class _StationListScreenState extends State<StationListScreen> {
           final machineList = machines.cast<Map<String, dynamic>>();
           for (final m in machineList) {
             final machineId = _toInt(m['id_mesin']);
-            healthMap[machineId] = _toDouble(m['health_mesin']);
+            final health = _toDouble(m['health_mesin']);
+            machineHealthMap[machineId] = health;
+          }
+          if (machineList.isNotEmpty) {
+            double sum = 0;
+            for (final m in machineList) {
+              sum += _toDouble(m['health_mesin']);
+            }
+            stationHealthMap[stationId] = sum / machineList.length;
+          } else {
+            stationHealthMap[stationId] = 0.0;
           }
         } catch (_) {
-          // ignore individual station fetch errors
+          stationHealthMap[stationId] = 0.0;
         }
       }
 
       if (mounted) {
         setState(() {
           _machineHealth.clear();
-          _machineHealth.addAll(healthMap);
+          _machineHealth.addAll(machineHealthMap);
+          _stationHealth.clear();
+          _stationHealth.addAll(stationHealthMap);
           _calculatingHealth = false;
         });
       }

@@ -52,6 +52,8 @@ CREATE TABLE IF NOT EXISTS machine (
     health_mesin    FLOAT DEFAULT 100,
     jenis           ENUM('lori','vibration') NOT NULL DEFAULT 'lori',
     kategori        VARCHAR(100) NULL,     -- grup vibration: Boiler 1, Kernel Station, dll
+    hm_current      FLOAT DEFAULT 0,
+    rpm             FLOAT DEFAULT 0,
     last_service    DATETIME,
     next_service    DATETIME,
     created_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -69,6 +71,7 @@ CREATE TABLE IF NOT EXISTS komponen (
     id_mesin                INT NOT NULL,
     nama_komponen            VARCHAR(255) NOT NULL,
     jenis_komponen            VARCHAR(255),      -- contoh: "Motor BLDC", "Baterai", "Bearing"
+    satuan                  VARCHAR(20),        -- satuan input riil: mm/s, gE, °C, dst
     bobot                   FLOAT DEFAULT 1,     -- bobot untuk weighted overall health
     lifetime                  FLOAT,
     remaining                  FLOAT,
@@ -221,6 +224,8 @@ CREATE TABLE IF NOT EXISTS service_history (
     health_mesin_after               FLOAT,
     service_date                       DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     next_service_date                    DATETIME,
+    hm                                    FLOAT,
+    rpm                                   FLOAT,
     created_at                             DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at                               DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     CONSTRAINT fk_servicehistory_user FOREIGN KEY (id_user)

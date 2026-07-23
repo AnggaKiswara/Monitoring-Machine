@@ -551,7 +551,7 @@ module.exports.submitInspection = async (req, res) => {
 
   try {
     const { id } = req.params;
-    const { tanggal_inspeksi, pic, keterangan, komponen_conditions, health_overall } = req.body;
+    const { tanggal_inspeksi, pic, keterangan, komponen_conditions, health_overall, hm, rpm } = req.body;
     const id_user = req.user?.id_user;
 
     // Validasi input
@@ -684,9 +684,11 @@ module.exports.submitInspection = async (req, res) => {
     const [historyResult] = await connection.query(
       `INSERT INTO service_history
        (id_user, id_station, id_mesin, service_type, description,
-        health_mesin_before, health_mesin_after, service_date, next_service_date, created_at)
-       VALUES (?, ?, ?, 'inspection', ?, ?, ?, ?, ?, NOW())`,
-      [id_user || null, machine.id_station, id, description, healthBefore, healthAfter, serviceDate, nextServiceDate]
+        health_mesin_before, health_mesin_after, service_date, next_service_date, hm, rpm, created_at)
+       VALUES (?, ?, ?, 'inspection', ?, ?, ?, ?, ?, ?, ?, NOW())`,
+      [id_user || null, machine.id_station, id, description, healthBefore, healthAfter, serviceDate, nextServiceDate,
+        hm !== undefined && hm !== null && hm !== '' ? Number(hm) : null,
+        rpm !== undefined && rpm !== null && rpm !== '' ? Number(rpm) : null]
     );
     const serviceId = historyResult.insertId;
 
@@ -699,12 +701,15 @@ module.exports.submitInspection = async (req, res) => {
       );
     }
 
-    // 7. Update machine health & service dates
+    // 7. Update machine health & service dates & HM/RPM
     await connection.query(
       `UPDATE machine
-       SET health_mesin = ?, last_service = ?, next_service = ?, updated_at = NOW()
+       SET health_mesin = ?, last_service = ?, next_service = ?, hm_current = ?, rpm = ?, updated_at = NOW()
        WHERE id_mesin = ?`,
-      [healthAfter, serviceDate, nextServiceDate, id]
+      [healthAfter, serviceDate, nextServiceDate,
+        hm !== undefined && hm !== null && hm !== '' ? Number(hm) : machine.hm_current,
+        rpm !== undefined && rpm !== null && rpm !== '' ? Number(rpm) : machine.rpm,
+        id]
     );
 
     // 7b. Persist lorry condition record

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/api_services.dart';
-import 'monitoring_screen.dart';
+import 'vibration_monitoring_screen.dart';
 
 class MonitoringFactoryEntryScreen extends StatefulWidget {
   final String factoryName;
@@ -125,7 +125,7 @@ class _MonitoringFactoryEntryScreenState extends State<MonitoringFactoryEntryScr
                               Navigator.push(
                                 context,
                                 MaterialPageRoute(
-                                  builder: (context) => MonitoringSessionScreen(
+                                  builder: (context) => VibrationMonitoringScreen(
                                     machineName: name,
                                     machineId: machineId,
                                   ),

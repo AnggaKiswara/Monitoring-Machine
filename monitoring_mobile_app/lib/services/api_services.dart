@@ -692,6 +692,8 @@ class ApiServices {
     String? keterangan,
     required List<Map<String, dynamic>> komponenConditions,
     double? healthOverall,
+    double? hm,
+    double? rpm,
   }) async {
     final headers = await _getHeaders();
 
@@ -708,6 +710,12 @@ class ApiServices {
     };
     if (healthOverall != null) {
       body['health_overall'] = healthOverall;
+    }
+    if (hm != null) {
+      body['hm'] = hm;
+    }
+    if (rpm != null) {
+      body['rpm'] = rpm;
     }
 
     final response = await http.post(

@@ -658,7 +658,6 @@ class _MachineDetailScreenState extends State<MachineDetailScreen>
           unselectedLabelColor: Colors.white70,
           tabs: const [
             Tab(text: 'Inspeksi', icon: Icon(Icons.edit)),
-            Tab(text: 'Monitoring', icon: Icon(Icons.analytics)),
             Tab(text: 'History', icon: Icon(Icons.history)),
           ],
         ),
@@ -669,10 +668,6 @@ class _MachineDetailScreenState extends State<MachineDetailScreen>
               controller: _tabController,
               children: [
                 _buildInspectionTab(),
-                MonitoringSessionScreen(
-                  machineName: widget.machineName,
-                  machineId: widget.machineId,
-                ),
                 _buildHistoryTab(),
               ],
             ),

@@ -25,6 +25,8 @@ class _VibrationMonitoringScreenState extends State<VibrationMonitoringScreen> {
 
   // controller untuk nilai input riil (mm/s, gE, °C) per komponen
   final Map<int, TextEditingController> _nilaiControllers = {};
+  final TextEditingController _hmController = TextEditingController();
+  final TextEditingController _rpmController = TextEditingController();
   final TextEditingController _picController = TextEditingController();
   final TextEditingController _keteranganController = TextEditingController();
 
@@ -168,6 +170,8 @@ class _VibrationMonitoringScreenState extends State<VibrationMonitoringScreen> {
         keterangan: _keteranganController.text.trim().isEmpty ? null : _keteranganController.text.trim(),
         komponenConditions: conditions,
         healthOverall: overall,
+        hm: _toDouble(_hmController.text),
+        rpm: _toDouble(_rpmController.text),
       );
       if (mounted) AppNotify.success(context, 'Monitoring vibration disimpan');
       setState(() => _loading = true);
@@ -184,6 +188,8 @@ class _VibrationMonitoringScreenState extends State<VibrationMonitoringScreen> {
   @override
   void dispose() {
     for (final c in _nilaiControllers.values) c.dispose();
+    _hmController.dispose();
+    _rpmController.dispose();
     _picController.dispose();
     _keteranganController.dispose();
     super.dispose();
@@ -279,6 +285,38 @@ class _VibrationMonitoringScreenState extends State<VibrationMonitoringScreen> {
                             ),
                           ],
                         ),
+                      ),
+                      const SizedBox(height: 18),
+
+                      // HM & RPM (input per mesin, sesuai tabel)
+                      Row(
+                        children: [
+                          Expanded(
+                            child: TextField(
+                              controller: _hmController,
+                              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                              decoration: InputDecoration(
+                                labelText: 'HM',
+                                filled: true,
+                                fillColor: Colors.white,
+                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: TextField(
+                              controller: _rpmController,
+                              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                              decoration: InputDecoration(
+                                labelText: 'RPM',
+                                filled: true,
+                                fillColor: Colors.white,
+                                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                       const SizedBox(height: 18),
 

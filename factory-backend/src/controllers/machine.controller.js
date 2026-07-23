@@ -593,6 +593,11 @@ module.exports.submitInspection = async (req, res) => {
 
     for (const item of komponen_conditions) {
       const { id_komponen, kondisi, nilai } = item;
+      // Terima baik 'kondisi' (mobile vibration/lori) maupun 'nilai' (legacy)
+      const raw = (kondisi !== undefined && kondisi !== null && kondisi !== '') ? kondisi
+        : (nilai !== undefined && nilai !== null && nilai !== '') ? nilai : null;
+      const nilaiVal = raw === null ? null : Number(raw);
+      if (nilaiVal === null || Number.isNaN(nilaiVal)) continue; // skip value kosong/NaN
 
       const [parameters] = await connection.query(
         `SELECT p.id_parameter
@@ -604,7 +609,7 @@ module.exports.submitInspection = async (req, res) => {
 
       if (parameters.length > 0) {
         for (const param of parameters) {
-          readingsToInsert.push([id_komponen, param.id_parameter, nilai]);
+          readingsToInsert.push([id_komponen, param.id_parameter, nilaiVal]);
         }
       } else {
         let defaultParamId;
@@ -627,17 +632,17 @@ module.exports.submitInspection = async (req, res) => {
           [id_komponen, defaultParamId]
         );
 
-        readingsToInsert.push([id_komponen, defaultParamId, nilai]);
+        readingsToInsert.push([id_komponen, defaultParamId, nilaiVal]);
         console.log(`Auto-created parameter mapping for komponen ${id_komponen}`);
       }
 
       await connection.query(
         `UPDATE komponen SET avg_health_all_parameter = ?, last_service = ?, updated_at = NOW()
          WHERE id_komponen = ?`,
-        [nilai, serviceDate, id_komponen]
+        [nilaiVal, serviceDate, id_komponen]
       );
 
-      totalNilai += nilai;
+      totalNilai += nilaiVal;
       komponenCount++;
     }
 

@@ -81,11 +81,14 @@ const DEFAULT_KOMPONEN = [
 ];
 
 // Template komponen untuk mesin Vibration (Boiler / Kernel / Engine Room)
+// 5 komponen vibration sesuai tabel: Horizontal, Vertikal, Bearing Dalam, Bearing Luar, Temp
+// bobot rata 20 (total 100). Satuan input riil: Vibration mm/s, Bearing gE, Temp °C
 const VIBRATION_KOMPONEN = [
-  { nama: "Vibration Fan - Horizontal", jenis: "Vibration", bobot: 25 },
-  { nama: "Vibration Fan - Vertikal", jenis: "Vibration", bobot: 25 },
-  { nama: "Bearing Condition", jenis: "Bearing", bobot: 25 },
-  { nama: "Bearing Temperature", jenis: "Temperature", bobot: 25 },
+  { nama: "Vibration Fan - Horizontal", jenis: "Vibration", bobot: 20, satuan: "mm/s" },
+  { nama: "Vibration Fan - Vertikal", jenis: "Vibration", bobot: 20, satuan: "mm/s" },
+  { nama: "Bearing - Bagian Dalam", jenis: "Bearing", bobot: 20, satuan: "gE" },
+  { nama: "Bearing - Bagian Luar", jenis: "Bearing", bobot: 20, satuan: "gE" },
+  { nama: "Bearing Temperature", jenis: "Temperature", bobot: 20, satuan: "°C" },
 ];
 
 // POST - Create machine baru + auto-create komponen default
@@ -126,8 +129,8 @@ module.exports.create = async (req, res) => {
     const kompTemplate = mJenis === 'vibration' ? VIBRATION_KOMPONEN : DEFAULT_KOMPONEN;
     for (const komp of kompTemplate) {
       const [kompResult] = await connection.query(
-        "INSERT INTO komponen (id_mesin, nama_komponen, jenis_komponen, bobot, avg_health_all_parameter, created_at) VALUES (?, ?, ?, ?, 0, NOW())",
-        [newMachineId, komp.nama, komp.jenis, komp.bobot || 1]
+        "INSERT INTO komponen (id_mesin, nama_komponen, jenis_komponen, bobot, satuan, avg_health_all_parameter, created_at) VALUES (?, ?, ?, ?, ?, 0, NOW())",
+        [newMachineId, komp.nama, komp.jenis, komp.bobot || 1, komp.satuan || null]
       );
 
       // Mapping komponen ke parameter "kondisi"
@@ -150,7 +153,7 @@ module.exports.create = async (req, res) => {
         jenis: mJenis,
         kategori: mKategori,
         health_mesin: health_mesin || 0,
-        komponen_count: DEFAULT_KOMPONEN.length,
+        komponen_count: kompTemplate.length,
       },
     });
   } catch (error) {

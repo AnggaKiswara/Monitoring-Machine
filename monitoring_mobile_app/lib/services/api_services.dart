@@ -303,6 +303,24 @@ class ApiServices {
 
   // ==================== MACHINES ====================
 
+  // Get vibration machines grouped by kategori (Boiler 1, Kernel Station, dll)
+  static Future<List<dynamic>> getVibrationMachines() async {
+    final headers = await _getHeaders();
+    final response = await http.get(
+      Uri.parse('$baseUrl/machines/vibration'),
+      headers: headers,
+    );
+    if (response.statusCode == 200) {
+      dynamic decoded = json.decode(response.body);
+      final data = _extractData(decoded);
+      return data is List ? data : [];
+    } else if (response.statusCode == 401) {
+      throw Exception('Token tidak valid. Silakan login ulang.');
+    } else {
+      throw Exception('Failed to load vibration machines');
+    }
+  }
+
   static Future<List<dynamic>> getMachines({int? stationId, int? limit}) async {
     final headers = await _getHeaders();
 

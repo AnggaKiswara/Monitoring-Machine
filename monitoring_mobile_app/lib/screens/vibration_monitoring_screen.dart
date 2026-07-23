@@ -23,7 +23,8 @@ class _VibrationMonitoringScreenState extends State<VibrationMonitoringScreen> {
   List<dynamic> _komponen = [];
   String? _error;
 
-  final Map<int, TextEditingController> _penilaianControllers = {};
+  // controller untuk nilai input riil (mm/s, gE, °C) per komponen
+  final Map<int, TextEditingController> _nilaiControllers = {};
   final TextEditingController _picController = TextEditingController();
   final TextEditingController _keteranganController = TextEditingController();
 
@@ -40,8 +41,7 @@ class _VibrationMonitoringScreenState extends State<VibrationMonitoringScreen> {
         setState(() {
           _komponen = list;
           for (final k in list) {
-            final id = k['id_komponen'];
-            _penilaianControllers[id] = TextEditingController();
+            _nilaiControllers[k['id_komponen']] = TextEditingController();
           }
           _loading = false;
         });
@@ -64,12 +64,38 @@ class _VibrationMonitoringScreenState extends State<VibrationMonitoringScreen> {
     return 0;
   }
 
+  // Konversi nilai riil (mm/s, gE, °C) -> penilaian 0-100
+  // Standar tabel: Good -> 100, Alert -> 60, Danger -> 30
+  double _toPenilaian(String? satuan, double nilai) {
+    if (nilai <= 0) return 0;
+    switch (satuan) {
+      case 'mm/s': // Vibration Fan: Good <=2.8, Alert 2.8-4.8, Danger >=4.8
+        if (nilai <= 2.8) return 100;
+        if (nilai < 4.8) return 60;
+        return 30;
+      case 'gE': // Bearing: Good <=2.0, Alert 2.0-4.0, Danger >=4.0
+        if (nilai <= 2.0) return 100;
+        if (nilai < 4.0) return 60;
+        return 30;
+      case '°C': // Bearing Temp: Good <=50, Alert 50-70, Danger >=70
+        if (nilai <= 50) return 100;
+        if (nilai < 70) return 60;
+        return 30;
+      default:
+        return nilai; // fallback: anggap sudah 0-100
+    }
+  }
+
+  double _penilaianOf(Map<String, dynamic> k) {
+    final id = k['id_komponen'];
+    final nilai = _toDouble(_nilaiControllers[id]?.text);
+    return _toPenilaian(k['satuan'], nilai);
+  }
+
   // Kondisi total per komponen = bobot * penilaian / 100
   double _kondisiTotal(Map<String, dynamic> k) {
-    final id = k['id_komponen'];
     final bobot = _toDouble(k['bobot']);
-    final penilaian = _toDouble(_penilaianControllers[id]?.text);
-    return bobot * penilaian / 100;
+    return bobot * _penilaianOf(k) / 100;
   }
 
   // Overall health = Σ(bobot * penilaian) / Σbobot
@@ -78,11 +104,24 @@ class _VibrationMonitoringScreenState extends State<VibrationMonitoringScreen> {
     double totalBobot = 0;
     for (final k in _komponen) {
       final bobot = _toDouble(k['bobot']);
-      final penilaian = _toDouble(_penilaianControllers[k['id_komponen']]?.text);
-      totalWeighted += bobot * penilaian;
+      totalWeighted += bobot * _penilaianOf(k);
       totalBobot += bobot;
     }
     return totalBobot > 0 ? totalWeighted / totalBobot : 0;
+  }
+
+  String _statusLabel(double penilaian) {
+    if (penilaian >= 100) return 'Good';
+    if (penilaian >= 60) return 'Alert';
+    if (penilaian > 0) return 'Danger';
+    return '-';
+  }
+
+  Color _statusColor(double penilaian) {
+    if (penilaian >= 100) return Colors.green;
+    if (penilaian >= 60) return Colors.orange;
+    if (penilaian > 0) return Colors.red;
+    return Colors.grey;
   }
 
   Color _healthColor(double h) {
@@ -99,20 +138,19 @@ class _VibrationMonitoringScreenState extends State<VibrationMonitoringScreen> {
   }
 
   Future<void> _submit() async {
-    // validasi: minimal 1 penilaian diisi
     final conditions = <Map<String, dynamic>>[];
     for (final k in _komponen) {
       final id = k['id_komponen'];
-      final penilaian = _toDouble(_penilaianControllers[id]?.text);
-      if (penilaian > 0) {
+      final nilai = _toDouble(_nilaiControllers[id]?.text);
+      if (nilai > 0) {
         conditions.add({
           'id_komponen': id,
-          'kondisi': penilaian,
+          'kondisi': _penilaianOf(k),
         });
       }
     }
     if (conditions.isEmpty) {
-      AppNotify.error(context, 'Isi minimal 1 penilaian komponen');
+      AppNotify.error(context, 'Isi minimal 1 nilai komponen');
       return;
     }
     if (_picController.text.trim().isEmpty) {
@@ -132,9 +170,9 @@ class _VibrationMonitoringScreenState extends State<VibrationMonitoringScreen> {
         healthOverall: overall,
       );
       if (mounted) AppNotify.success(context, 'Monitoring vibration disimpan');
-      // reload untuk refresh health per komponen
       setState(() => _loading = true);
-      _penilaianControllers.clear();
+      for (final c in _nilaiControllers.values) c.dispose();
+      _nilaiControllers.clear();
       await _loadKomponen();
     } catch (e) {
       if (mounted) AppNotify.error(context, 'Gagal simpan: $e');
@@ -145,7 +183,7 @@ class _VibrationMonitoringScreenState extends State<VibrationMonitoringScreen> {
 
   @override
   void dispose() {
-    for (final c in _penilaianControllers.values) c.dispose();
+    for (final c in _nilaiControllers.values) c.dispose();
     _picController.dispose();
     _keteranganController.dispose();
     super.dispose();
@@ -260,7 +298,7 @@ class _VibrationMonitoringScreenState extends State<VibrationMonitoringScreen> {
                             Expanded(flex: 1, child: Text('No', style: TextStyle(color: Colors.white, fontSize: 12))),
                             Expanded(flex: 4, child: Text('Uraian', style: TextStyle(color: Colors.white, fontSize: 12))),
                             Expanded(flex: 2, child: Text('Bobot', style: TextStyle(color: Colors.white, fontSize: 12))),
-                            Expanded(flex: 3, child: Text('Penilaian', style: TextStyle(color: Colors.white, fontSize: 12))),
+                            Expanded(flex: 3, child: Text('Nilai', style: TextStyle(color: Colors.white, fontSize: 12))),
                             Expanded(flex: 3, child: Text('Kond. Tot', style: TextStyle(color: Colors.white, fontSize: 12))),
                           ],
                         ),
@@ -272,7 +310,9 @@ class _VibrationMonitoringScreenState extends State<VibrationMonitoringScreen> {
                         final k = entry.value;
                         final id = k['id_komponen'];
                         final bobot = _toDouble(k['bobot']);
+                        final satuan = k['satuan'] ?? '';
                         final kondisi = _kondisiTotal(k);
+                        final penilaian = _penilaianOf(k);
                         return Container(
                           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                           decoration: BoxDecoration(
@@ -288,21 +328,29 @@ class _VibrationMonitoringScreenState extends State<VibrationMonitoringScreen> {
                               Expanded(flex: 1, child: Text('${idx + 1}', style: const TextStyle(fontSize: 13))),
                               Expanded(
                                   flex: 4,
-                                  child: Text(k['nama_komponen'] ?? '-',
-                                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600))),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(k['nama_komponen'] ?? '-',
+                                          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                                      Text('Penilaian: ${penilaian.toStringAsFixed(0)} (${_statusLabel(penilaian)})',
+                                          style: TextStyle(fontSize: 10, color: _statusColor(penilaian))),
+                                    ],
+                                  )),
                               Expanded(flex: 2, child: Text(bobot.toStringAsFixed(0), style: const TextStyle(fontSize: 13))),
                               Expanded(
                                 flex: 3,
                                 child: SizedBox(
                                   height: 36,
                                   child: TextField(
-                                    controller: _penilaianControllers[id],
+                                    controller: _nilaiControllers[id],
                                     onChanged: (_) => setState(() {}),
                                     keyboardType: const TextInputType.numberWithOptions(decimal: true),
                                     decoration: InputDecoration(
                                       isDense: true,
                                       contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-                                      hintText: '0-100',
+                                      suffixText: satuan,
+                                      hintText: '0',
                                       border: OutlineInputBorder(
                                         borderRadius: BorderRadius.circular(8),
                                       ),

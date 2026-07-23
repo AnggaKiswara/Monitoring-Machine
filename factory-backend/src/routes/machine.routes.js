@@ -4,6 +4,7 @@ const { authenticate, authorize } = require("../middleware/auth");
 
 router.use(authenticate);
 router.get("/", ctrl.getAll);
+router.get("/vibration", ctrl.getVibrationMachines);
 router.get("/:id", ctrl.getOne);
 router.post("/", authorize("admin", "staff", "teknisi"), ctrl.create);
 router.put("/:id", authorize("admin", "staff"), ctrl.update);

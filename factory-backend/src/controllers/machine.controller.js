@@ -34,12 +34,32 @@ const uploadMiddleware = upload.array("photos", 10); // max 10 foto
 // Simpan hasil crudFactory ke variable
 const crud = crudFactory("machine", "id_mesin");
 
+// GET daftar mesin vibration, dikelompokkan per kategori (Boiler 1, Kernel Station, dll)
+async function getVibrationMachines(req, res) {
+  try {
+    const [rows] = await db.query(
+      "SELECT id_mesin, id_station, nama_mesin, kode_mesin, health_mesin, kategori FROM machine WHERE jenis = 'vibration' ORDER BY kategori, nama_mesin"
+    );
+    const groups = {};
+    for (const m of rows) {
+      const k = (m.kategori && m.kategori.toString().trim()) || "Lainnya";
+      groups[k] = groups[k] || [];
+      groups[k].push(m);
+    }
+    const grouped = Object.keys(groups).map((k) => ({ kategori: k, mesin: groups[k] }));
+    res.json({ success: true, data: grouped });
+  } catch (e) {
+    res.status(500).json({ success: false, message: e.message });
+  }
+}
+
 // Export method dari crudFactory
 module.exports = {
   getAll: crud.getAll,
   getOne: crud.getOne,
   update: crud.update,
   remove: crud.remove,
+  getVibrationMachines,
   uploadMiddleware,
   updateInspection,
   deleteInspection,
@@ -48,16 +68,24 @@ module.exports = {
   createLoriCondition,
 };
 
-// Template komponen default untuk setiap Lori baru
+// Template komponen default untuk setiap Lori baru (bobot sesuai standar inspeksi)
 const DEFAULT_KOMPONEN = [
-  { nama: "Body", jenis: "Structural" },
-  { nama: "Siku", jenis: "Structural" },
-  { nama: "Steam Spreader", jenis: "Mechanical" },
-  { nama: "Chasis", jenis: "Structural" },
-  { nama: "Hook", jenis: "Mechanical" },
-  { nama: "Cover Roda", jenis: "Mechanical" },
-  { nama: "Roda", jenis: "Mechanical" },
-  { nama: "Lantai", jenis: "Structural" },
+  { nama: "Body", jenis: "Structural", bobot: 25 },
+  { nama: "Siku", jenis: "Structural", bobot: 5 },
+  { nama: "Steam Spreader", jenis: "Mechanical", bobot: 7 },
+  { nama: "Chasis", jenis: "Structural", bobot: 25 },
+  { nama: "Hook", jenis: "Mechanical", bobot: 3 },
+  { nama: "Cover Roda", jenis: "Mechanical", bobot: 2 },
+  { nama: "Roda", jenis: "Mechanical", bobot: 13 },
+  { nama: "Lantai", jenis: "Structural", bobot: 20 },
+];
+
+// Template komponen untuk mesin Vibration (Boiler / Kernel / Engine Room)
+const VIBRATION_KOMPONEN = [
+  { nama: "Vibration Fan - Horizontal", jenis: "Vibration", bobot: 25 },
+  { nama: "Vibration Fan - Vertikal", jenis: "Vibration", bobot: 25 },
+  { nama: "Bearing Condition", jenis: "Bearing", bobot: 25 },
+  { nama: "Bearing Temperature", jenis: "Temperature", bobot: 25 },
 ];
 
 // POST - Create machine baru + auto-create komponen default
@@ -65,14 +93,16 @@ module.exports.create = async (req, res) => {
   const connection = await db.getConnection();
 
   try {
-    const { id_station, kode_mesin, nama_mesin, health_mesin } = req.body;
+    const { id_station, kode_mesin, nama_mesin, health_mesin, jenis, kategori } = req.body;
+    const mJenis = (jenis === 'vibration') ? 'vibration' : 'lori';
+    const mKategori = (kategori && kategori.toString().trim() !== '') ? kategori.toString().trim() : null;
 
     await connection.beginTransaction();
 
     // 1. Create machine
     const [result] = await connection.query(
-      "INSERT INTO machine (id_station, kode_mesin, nama_mesin, health_mesin, created_at) VALUES (?, ?, ?, ?, NOW())",
-      [id_station, kode_mesin || null, nama_mesin, health_mesin || 0]
+      "INSERT INTO machine (id_station, kode_mesin, nama_mesin, health_mesin, jenis, kategori, created_at) VALUES (?, ?, ?, ?, ?, ?, NOW())",
+      [id_station, kode_mesin || null, nama_mesin, health_mesin || 0, mJenis, mKategori]
     );
 
     const newMachineId = result.insertId;
@@ -92,11 +122,12 @@ module.exports.create = async (req, res) => {
       kondisiParamId = newParam.insertId;
     }
 
-    // 3. Auto-create komponen default + mapping parameter
-    for (const komp of DEFAULT_KOMPONEN) {
+    // 3. Auto-create komponen default + mapping parameter (sesuai jenis)
+    const kompTemplate = mJenis === 'vibration' ? VIBRATION_KOMPONEN : DEFAULT_KOMPONEN;
+    for (const komp of kompTemplate) {
       const [kompResult] = await connection.query(
-        "INSERT INTO komponen (id_mesin, nama_komponen, jenis_komponen, avg_health_all_parameter, created_at) VALUES (?, ?, ?, 0, NOW())",
-        [newMachineId, komp.nama, komp.jenis]
+        "INSERT INTO komponen (id_mesin, nama_komponen, jenis_komponen, bobot, avg_health_all_parameter, created_at) VALUES (?, ?, ?, ?, 0, NOW())",
+        [newMachineId, komp.nama, komp.jenis, komp.bobot || 1]
       );
 
       // Mapping komponen ke parameter "kondisi"
@@ -110,12 +141,14 @@ module.exports.create = async (req, res) => {
 
     res.status(201).json({
       success: true,
-      message: `Machine berhasil dibuat dengan ${DEFAULT_KOMPONEN.length} komponen default`,
+      message: `Machine berhasil dibuat dengan ${kompTemplate.length} komponen default`,
       data: {
         id_mesin: newMachineId,
         id_station,
         kode_mesin,
         nama_mesin,
+        jenis: mJenis,
+        kategori: mKategori,
         health_mesin: health_mesin || 0,
         komponen_count: DEFAULT_KOMPONEN.length,
       },
@@ -769,13 +802,24 @@ async function updateInspection(req, res) {
           "UPDATE komponen SET avg_health_all_parameter = ?, last_service = ?, updated_at = NOW() WHERE id_komponen = ?",
           [nilai, serviceDate, id_komponen]
         );
-        totalNilai += Number(nilai) || 0;
-        komponenCount++;
       }
     }
 
+    // Hitung overall health MESIN = rata-rata tertimbang komponen (Σ bobot×nilai / Σ bobot)
+    const [kompRows] = await connection.query(
+      "SELECT bobot, avg_health_all_parameter FROM komponen WHERE id_mesin = ?",
+      [id]
+    );
+    let totalWeighted = 0;
+    let totalBobot = 0;
+    for (const r of kompRows) {
+      const b = Number(r.bobot) > 0 ? Number(r.bobot) : 1;
+      const h = Number(r.avg_health_all_parameter) || 0;
+      totalWeighted += b * h;
+      totalBobot += b;
+    }
     const healthAfter =
-      komponenCount > 0 ? Math.round((totalNilai / komponenCount) * 100) / 100 : services[0].health_mesin_after;
+      totalBobot > 0 ? Math.round((totalWeighted / totalBobot) * 100) / 100 : services[0].health_mesin_after;
     const description = "PIC: " + (pic || "").trim() + (keterangan ? " - " + keterangan.trim() : "");
     const nextServiceDate = new Date(new Date(serviceDate).getTime() + 7 * 24 * 60 * 60 * 1000);
 

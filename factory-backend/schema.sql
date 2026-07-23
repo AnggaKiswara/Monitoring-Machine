@@ -48,7 +48,10 @@ CREATE TABLE IF NOT EXISTS machine (
     id_mesin        INT AUTO_INCREMENT PRIMARY KEY,
     id_station      INT NOT NULL,
     nama_mesin      VARCHAR(255) NOT NULL,
+    kode_mesin      VARCHAR(50),
     health_mesin    FLOAT DEFAULT 100,
+    jenis           ENUM('lori','vibration') NOT NULL DEFAULT 'lori',
+    kategori        VARCHAR(100) NULL,     -- grup vibration: Boiler 1, Kernel Station, dll
     last_service    DATETIME,
     next_service    DATETIME,
     created_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -66,6 +69,7 @@ CREATE TABLE IF NOT EXISTS komponen (
     id_mesin                INT NOT NULL,
     nama_komponen            VARCHAR(255) NOT NULL,
     jenis_komponen            VARCHAR(255),      -- contoh: "Motor BLDC", "Baterai", "Bearing"
+    bobot                   FLOAT DEFAULT 1,     -- bobot untuk weighted overall health
     lifetime                  FLOAT,
     remaining                  FLOAT,
     next_pm                    FLOAT,

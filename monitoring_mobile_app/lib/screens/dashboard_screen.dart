@@ -3,6 +3,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 import '../services/api_services.dart';
 import 'station_list_screen.dart';
+import 'module_select_screen.dart';
 import 'global_history_screen.dart';
 import '../providers/auth_providers.dart';
 
@@ -229,7 +230,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           context,
           MaterialPageRoute(
             builder: (context) =>
-                StationListScreen(factoryName: name, factoryId: factoryId),
+                ModuleSelectScreen(factoryName: name, factoryId: factoryId),
           ),
         );
       },
